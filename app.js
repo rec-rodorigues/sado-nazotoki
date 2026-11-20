@@ -105,9 +105,13 @@
         });
         // 全部そろったら、点を順につないでトキの絵にする
         if (pts.length === state.total_points && pts.length > 0) {
-            // 最後の点から最初の点（くちばしの先）まで閉じてつなぐ
-            const line = pts.map(function(p) { return [p[1], p[2]]; });
-            line.push(line[0]);
+            // くちばし：先(0)→下くちばし(1)→3…59→上くちばし(2)→先(0) の順につなぐ
+            const byId = {};
+            pts.forEach(function(p) { byId[p[0]] = [p[1], p[2]]; });
+            const order = [0, 1];
+            for (let i = 3; i < state.total_points; i++) order.push(i);
+            order.push(2, 0);
+            const line = order.map(function(i) { return byId[i]; }).filter(Boolean);
             L.polyline(line, { color: "#B33A2B", weight: 3, opacity: 0.8 }).addTo(tokiLayer);
         }
         knownPoints = new Set(pts.map(function(p) { return p[0]; }));
