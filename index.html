@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- サークル内で使うサイトなので、検索エンジンの検索結果に載せない -->
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>宝箱をさがせ｜佐渡島マップ</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
+
+    <style>
+        /* =========================================
+           和モダンの配色（佐渡島マップと同じ：和紙・墨・朱）
+           ========================================= */
+        :root {
+            --washi: #F5F0E6;
+            --card: #FFFCF6;
+            --line: #DED3BF;
+            --line-strong: #C9BBA2;
+            --sumi: #2B2622;
+            --sub: #6F665B;
+            --shu: #B33A2B;
+            --shu-dark: #8E2E20;
+            --shu-soft: #F3E3DC;
+            --kin: #A5822F;
+            --kin-soft: #F2EAD3;
+            --koke: #5B7C4F;
+            --koke-soft: #E5ECDD;
+            --ai: #3E5C76;
+            --radius: 4px;
+            --serif: "Noto Serif JP", "Yu Mincho", serif;
+            --sans: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
+        body {
+            margin: 0;
+            background: var(--washi);
+            color: var(--sumi);
+            font-family: var(--sans);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        button, input, select, textarea {
+            font-family: inherit;
+            font-size: 16px;
+            color: inherit;
+        }
+
+        .ti { font-size: 1.1em; vertical-align: -0.12em; }
+
+        .page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 16px 96px;
+        }
+
+        /* ヘッダー */
+        .site-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 0 12px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .site-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius);
+            background: var(--sumi);
+            color: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .site-title {
+            margin: 0;
+            font-family: var(--serif);
+            font-weight: 700;
+            font-size: 22px;
+            letter-spacing: 0.08em;
+            line-height: 1.2;
+        }
+
+        .site-subtitle {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: var(--sub);
+            letter-spacing: 0.1em;
+        }
+
+        .header-spacer { flex: 1; }
+
+        .team-badge {
+            font-size: 13px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            padding: 2px 10px;
+            background: var(--card);
+            white-space: nowrap;
+        }
+
+        /* カード・ボタン・入力欄 */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin: 14px 0;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 14px;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            background: var(--card);
+            color: var(--sumi);
+            cursor: pointer;
+            line-height: 1.4;
+            white-space: nowrap;
+            font-size: 15px;
+        }
+
+        .btn:hover { background: var(--washi); }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.5; cursor: default; }
+
+        .btn-primary { background: var(--shu); border-color: var(--shu); color: #fff; }
+        .btn-primary:hover { background: var(--shu-dark); border-color: var(--shu-dark); }
+        .btn-primary.on { background: var(--sumi); border-color: var(--sumi); }
+
+        input[type=text], input[type=password], input[type=tel], select, textarea {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            background: #fff;
+        }
+
+        input:focus, select:focus, textarea:focus, .btn:focus-visible {
+            outline: 2px solid var(--shu);
+            outline-offset: 1px;
+        }
+
+        .field-label {
+            display: block;
+            font-size: 13px;
+            color: var(--sub);
+            margin: 10px 0 4px;
+        }
+
+        .small-note { font-size: 12px; color: var(--sub); }
+
+        .demo-banner {
+            background: var(--kin-soft);
+            border: 1px solid var(--kin);
+            color: #6E5517;
+            font-size: 13px;
+            border-radius: var(--radius);
+            padding: 6px 10px;
+            margin-top: 12px;
+        }
+
+        /* ログイン */
+        #loginView .card { max-width: 420px; margin: 28px auto; }
+        #loginView h2 { font-family: var(--serif); margin: 0 0 4px; font-size: 20px; }
+        .login-error { color: var(--shu); font-size: 13px; min-height: 1.4em; margin: 6px 0 0; }
+
+        /* 進み具合 */
+        .progress-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .stat {
+            flex: 1 1 120px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+        }
+
+        .stat b { font-family: var(--serif); font-size: 22px; }
+        .stat span { font-size: 12px; color: var(--sub); display: block; }
+
+        /* 下のタブ */
+        .tabbar {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            background: var(--card);
+            border-top: 1px solid var(--line-strong);
+            z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        .tabbar button {
+            flex: 1;
+            border: none;
+            background: none;
+            padding: 8px 0 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            font-size: 12px;
+            color: var(--sub);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .tabbar button .ti { font-size: 24px; }
+        .tabbar button.active { color: var(--shu); font-weight: 700; }
+
+        .tabbar .dot {
+            position: absolute;
+            top: 6px;
+            left: calc(50% + 10px);
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--shu);
+            display: none;
+        }
+
+        .tabbar .dot.show { display: block; }
+
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* 地図 */
+        .map-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .map-bar .grow { flex: 1; min-width: 160px; font-size: 13px; color: var(--sub); }
+
+        #map {
+            height: min(68vh, 620px);
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #E9E4D8;
+        }
+
+        #map .leaflet-tile-pane {
+            filter: sepia(0.3) saturate(0.7) brightness(1.02);
+        }
+
+        #map.adding { cursor: crosshair; }
+
+        .leaflet-bar {
+            border: 1px solid var(--line-strong) !important;
+            border-radius: var(--radius) !important;
+            box-shadow: none !important;
+            overflow: hidden;
+        }
+
+        .leaflet-bar a { background: var(--card) !important; color: var(--sumi) !important; }
+
+        .leaflet-popup-content-wrapper {
+            background: var(--card);
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 14px rgba(43, 38, 34, 0.15);
+        }
+
+        .leaflet-popup-content { font-family: var(--sans); margin: 12px 14px; }
+
+        /* しずく型のピン（佐渡島マップと同じ形） */
+        .pin-marker { background: none; border: none; }
+
+        .pin {
+            width: 32px;
+            height: 32px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            background: var(--pin-color, var(--sumi));
+            border: 2px solid var(--card);
+            box-shadow: 0 2px 6px rgba(43, 38, 34, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pin > * { transform: rotate(45deg); color: var(--card); }
+        .pin .pin-mark { font-family: var(--serif); font-weight: 700; font-size: 14px; }
+        .pin .ti { font-size: 17px; }
+        .pin.pin-temp { background: var(--card); border: 2px dashed var(--shu); }
+        .pin.pin-temp .ti { color: var(--shu); }
+        .pin.pin-treasure { background: var(--kin); width: 40px; height: 40px; }
+        .pin.pin-treasure .ti { font-size: 22px; }
+
+        /* トキの点 */
+        .toki-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--shu);
+            border: 2px solid var(--card);
+            box-shadow: 0 0 0 1px var(--shu-dark);
+        }
+
+        .toki-dot.new { animation: pop 1.2s ease-out 2; }
+
+        @keyframes pop {
+            0% { transform: scale(2.6); }
+            100% { transform: scale(1); }
+        }
+
+        /* 書類 */
+        .doc-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 12px 0 8px;
+            scrollbar-width: thin;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            border: 1px solid var(--line-strong);
+            border-radius: 999px;
+            background: var(--card);
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .chip.active { background: var(--sumi); border-color: var(--sumi); color: var(--card); }
+        .chip .new { width: 7px; height: 7px; border-radius: 50%; background: var(--shu); }
+
+        #docFrame {
+            width: 100%;
+            border: none;
+            min-height: 400px;
+            display: block;
+            background: transparent;
+        }
+
+        /* 回答（チャット） */
+        .chat {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 12px 0 170px;
+        }
+
+        .msg { display: flex; gap: 8px; align-items: flex-end; max-width: 100%; }
+        .msg.me { justify-content: flex-end; }
+
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: var(--sumi);
+            color: var(--kin-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 18px;
+        }
+
+        .bubble {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px 14px 14px 4px;
+            padding: 8px 12px;
+            max-width: min(78%, 520px);
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .msg.me .bubble {
+            background: var(--shu-soft);
+            border-color: #E5C3B8;
+            border-radius: 14px 14px 4px 14px;
+        }
+
+        .bubble .tag {
+            font-family: ui-monospace, Menlo, monospace;
+            font-size: 12px;
+            color: var(--sub);
+            display: block;
+        }
+
+        .bubble.ok { border-color: var(--koke); background: var(--koke-soft); }
+        .bubble.ng { border-color: var(--line-strong); }
+
+        .composer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+            background: var(--washi);
+            border-top: 1px solid var(--line);
+            padding: 10px 16px;
+            z-index: 999;
+        }
+
+        .composer-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 110px 1fr auto;
+            gap: 8px;
+        }
+
+        @media (max-width: 420px) {
+            .composer-inner { grid-template-columns: 92px 1fr auto; }
+        }
+
+        /* 地点追加フォーム（下からせり上がるシート） */
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(43, 38, 34, 0.35);
+            z-index: 2000;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .sheet-overlay.open { display: flex; }
+
+        .sheet-panel {
+            background: var(--card);
+            width: 100%;
+            max-width: 520px;
+            border-radius: 12px 12px 0 0;
+            padding: 16px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .sheet-panel h2 { font-family: var(--serif); font-size: 19px; margin: 0; }
+        .sheet-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+
+        /* クリア演出 */
+        .clear-panel { text-align: center; border-radius: 12px; margin: auto 16px; }
+        .clear-panel .big { font-size: 64px; color: var(--kin); line-height: 1; }
+        .clear-panel h2 { font-size: 24px; margin: 10px 0 6px; }
+
+        /* お知らせ */
+        #toastArea {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: min(92vw, 420px);
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--sumi);
+            color: var(--card);
+            border-radius: var(--radius);
+            padding: 9px 12px;
+            font-size: 14px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+        }
+
+        .toast.error { background: var(--shu-dark); }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <header class="site-header">
+        <div class="site-logo" aria-hidden="true"><i class="ti ti-map-2"></i></div>
+        <div>
+            <h1 class="site-title">佐渡島マップ</h1>
+            <p class="site-subtitle">宝箱をさがせ ・ 佐渡旅代替交流会</p>
+        </div>
+        <span class="header-spacer"></span>
+        <span id="teamBadge" class="team-badge" hidden></span>
+    </header>
+
+    <div id="demoBanner" class="demo-banner" hidden>
+        <i class="ti ti-flask"></i> 試用モード：進み具合はこの端末の中だけに保存されます。
+    </div>
+
+    <!-- ログイン -->
+    <section id="loginView" class="view">
+        <div class="card">
+            <h2>チームを選んでください</h2>
+            <p class="small-note">受付で配られたチームの番号（4桁）を入れると、チームの書類と地図が開きます。同じチームなら何台のスマホで開いても同じ画面になります。</p>
+            <label class="field-label" for="teamSelect">チーム</label>
+            <select id="teamSelect"></select>
+            <label class="field-label" for="teamCode">チームの番号</label>
+            <input id="teamCode" type="tel" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="例：1234">
+            <p id="loginError" class="login-error"></p>
+            <button id="loginButton" type="button" class="btn btn-primary" style="width:100%;margin-top:6px"><i class="ti ti-door-enter"></i>はじめる</button>
+        </div>
+    </section>
+
+    <!-- 地図 -->
+    <section id="mapView" class="view">
+        <div class="progress-row">
+            <div class="stat"><b id="statSolved">0</b> / <span style="display:inline" id="statSolvedTotal">0</span><span>解いた書類</span></div>
+            <div class="stat"><b id="statPoints">0</b> / <span style="display:inline" id="statPointsTotal">60</span><span>地図の点</span></div>
+        </div>
+        <div class="card map-bar">
+            <span class="grow" id="mapHint"><i class="ti ti-info-circle"></i> 書類を解くと、地図に点が増えていきます。</span>
+            <button id="addModeButton" type="button" class="btn btn-primary"><i class="ti ti-map-pin-plus"></i>地点追加</button>
+        </div>
+        <div id="map"></div>
+    </section>
+
+    <!-- 書類 -->
+    <section id="docView" class="view">
+        <div id="docTabs" class="doc-tabs" role="tablist"></div>
+        <iframe id="docFrame" title="書類"></iframe>
+    </section>
+
+    <!-- 回答 -->
+    <section id="chatView" class="view">
+        <div id="chat" class="chat" aria-live="polite"></div>
+    </section>
+</div>
+
+<div id="composer" class="composer" hidden>
+    <form id="answerForm" class="composer-inner">
+        <select id="puzzleSelect" aria-label="書類の番号"></select>
+        <input id="answerInput" type="text" autocomplete="off" placeholder="答えを入力" aria-label="答え">
+        <button type="submit" class="btn btn-primary" aria-label="送る"><i class="ti ti-send"></i></button>
+    </form>
+</div>
+
+<nav id="tabbar" class="tabbar" hidden>
+    <button type="button" data-view="mapView"><i class="ti ti-map"></i>地図<span class="dot" id="dotMap"></span></button>
+    <button type="button" data-view="docView"><i class="ti ti-files"></i>書類<span class="dot" id="dotDoc"></span></button>
+    <button type="button" data-view="chatView"><i class="ti ti-message-circle"></i>回答</button>
+</nav>
+
+<!-- 地点追加フォーム -->
+<div id="spotSheet" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="spotTitle">
+    <form id="spotForm" class="sheet-panel">
+        <h2 id="spotTitle"><i class="ti ti-map-pin-plus"></i> スポットを追加</h2>
+        <p class="small-note" id="spotLatLng"></p>
+        <label class="field-label" for="spotName">地点名</label>
+        <input id="spotName" type="text" maxlength="60" placeholder="例：〇〇の浜">
+        <label class="field-label" for="spotCategory">カテゴリー</label>
+        <select id="spotCategory">
+            <option>観光地</option>
+            <option>活動場所</option>
+            <option>宿泊地</option>
+            <option>飲食店</option>
+            <option>生活用品店</option>
+        </select>
+        <label class="field-label" for="spotNote">メモ（任意）</label>
+        <input id="spotNote" type="text" maxlength="200">
+        <label class="field-label" for="spotPassword"><i class="ti ti-key"></i> 合言葉</label>
+        <input id="spotPassword" type="text" autocomplete="off" placeholder="登録には合言葉が必要です">
+        <p id="spotError" class="login-error"></p>
+        <div class="sheet-actions">
+            <button type="button" class="btn" id="spotCancel">やめる</button>
+            <button type="submit" class="btn btn-primary" id="spotSubmit"><i class="ti ti-device-floppy"></i>登録</button>
+        </div>
+    </form>
+</div>
+
+<!-- クリア -->
+<div id="clearSheet" class="sheet-overlay" style="align-items:center" role="dialog" aria-modal="true">
+    <div class="sheet-panel clear-panel">
+        <div class="big"><i class="ti ti-treasure-chest"></i></div>
+        <h2 class="site-title">宝箱を見つけた！</h2>
+        <p id="clearText">トキのくちばしの先、佐渡金山に宝箱があった。</p>
+        <button type="button" class="btn btn-primary" id="clearClose">地図を見る</button>
+    </div>
+</div>
+
+<div id="toastArea" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="config.js"></script>
+<script src="demo-data.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
