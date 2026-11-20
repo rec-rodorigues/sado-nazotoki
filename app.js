@@ -3,6 +3,7 @@
 // =========================================
 (function() {
     const api = window.NazoApi;
+    const TOKI = '<svg class="toki-face" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="32" fill="#FBEFEA"/><g transform="translate(-5 1)"><path d="M29 23 Q20 10 8 13 Q17 17 21 22 Q10 20 5 26 Q16 26 22 29 Q14 31 12 37 Q20 33 27 33 Z" fill="#EBB1AE"/><path d="M14 54 Q12 30 26 22 Q40 15 44 28 Q46 38 38 44 Q30 50 28 64 L16 64 Z" fill="#FFFFFF" stroke="#E2BDB6" stroke-width="1.2"/><path d="M30 24 Q40 17 45 26 Q46 33 40 36 Q33 36 30 30 Z" fill="#D9363E"/><path d="M43 30 Q54 33 60 46 Q61 49 59 48 Q53 38 42 35 Z" fill="#2B2622"/><path d="M57 45 Q60 47 60 49 Q58 49 56 47 Z" fill="#D9363E"/><circle cx="38" cy="27" r="2.6" fill="#F4C542"/><circle cx="38" cy="27" r="1.3" fill="#1B1B1B"/><path d="M14 44 Q20 40 26 44" stroke="#EBC5C0" stroke-width="1.5" fill="none"/></g></svg>';
     const $ = function(id) { return document.getElementById(id); };
 
     const GROUPS = [
@@ -296,7 +297,7 @@
         if (res.status === "opened") {
             $("lockInput").value = "";
             await refresh(false);
-            addMsg("bot", "合言葉を唱えると、錠がはずれた！", "ok");
+            addMsg("bot", "合言葉を唱えると、錠がはずれた！\nやったね。ぼくの役目はここまで。春、佐渡で待ってるね。", "ok");
             showFinale();
         } else {
             $("lockError").textContent = "……何も起こらない。合言葉がちがうようだ。";
@@ -459,7 +460,11 @@
         if (who === "bot") {
             const av = document.createElement("div");
             av.className = "avatar";
-            av.innerHTML = "<i class=\"ti ti-mail\"></i>";
+            av.innerHTML = TOKI;
+            const nm = document.createElement("span");
+            nm.className = "who";
+            nm.textContent = "トキ";
+            bubble.insertBefore(nm, bubble.firstChild);
             row.appendChild(av);
         }
         row.appendChild(bubble);
@@ -561,7 +566,7 @@
         chatLog = store("nazo-chat-" + team) || [];
         $("chat").innerHTML = "";
         if (chatLog.length === 0) {
-            addMsg("bot", "ようこそ、" + state.team.name + "。\n書類の答えがわかったら、ここで書類の番号を選んで答えを書いてね。\n書類は第一幕から第四幕まで、全部そろっているよ。");
+            addMsg("bot", "はじめまして、" + state.team.name + "。ぼくはトキ。\n名もなき者に頼まれて、書類の束を運んできたんだ。\n書類の答えがわかったら、ここで書類の番号を選んで、ぼくに教えてね。\n書類は第一幕から第四幕まで、全部そろっているよ。");
         } else {
             chatLog.forEach(function(m) { addMsg(m[0], m[1], m[2], m[3], false); });
         }
