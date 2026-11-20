@@ -77,7 +77,12 @@ h1{font-family:var(--f-display);font-weight:900;font-size:clamp(28px,6vw,40px);l
 .peek .ans{border-top:none;margin-top:8px;padding-top:0}
 .ask{font-weight:700;color:var(--sea);margin:0}
 </style><style>
-body{padding-block:12px 24px}
+/* サイトの配色（古い紙）にそろえる。端末がダークモードでも明るいまま */
+:root,:root:not([data-theme="light"]){color-scheme:light;
+  --bg:transparent!important;--paper:#FBF6EA!important;--ink:#2A241D!important;--muted:#6E6352!important;
+  --line:#D9CAA9!important;--accent:#B33A2B!important;--ink2:#1B2F44!important;--accent-soft:#F3E3DC!important;--sea:#1B2F44!important}
+body{background:transparent!important;padding-block:12px 24px}
+.sheet{box-shadow:0 2px 0 rgba(120,90,40,.08)}
 .wrap{gap:20px}
 </style></head><body><div class="wrap"><section class="sheet">
   <div class="sheet-head"><span class="sheet-id">LETTER</span><h2>届いた手紙</h2></div>
@@ -88,7 +93,8 @@ body{padding-block:12px 24px}
 その場所を知る者は、もう島にはいない。
 私に残せたのは、同封した八枚の書類だけだ。
 
-書類の謎がすべて解けたとき、宝箱への道はひとりでに開くだろう。
+宝箱は、ありかを突き止め、合言葉を唱えた者にだけ開く。
+書類の謎を解き進めれば、そのどちらも見えてくるはずだ。
 健闘を祈る。<span class="sign">―― 名もなき者より</span></p>
 </section>
 <section class="sheet">

@@ -105,7 +105,10 @@
         });
         // 全部そろったら、点を順につないでトキの絵にする
         if (pts.length === state.total_points && pts.length > 0) {
-            L.polyline(pts.map(function(p) { return [p[1], p[2]]; }), { color: "#B33A2B", weight: 3, opacity: 0.8 }).addTo(tokiLayer);
+            // 最後の点から最初の点（くちばしの先）まで閉じてつなぐ
+            const line = pts.map(function(p) { return [p[1], p[2]]; });
+            line.push(line[0]);
+            L.polyline(line, { color: "#B33A2B", weight: 3, opacity: 0.8 }).addTo(tokiLayer);
         }
         knownPoints = new Set(pts.map(function(p) { return p[0]; }));
     }
@@ -131,7 +134,7 @@
         $("map").classList.toggle("adding", on);
         $("mapHint").innerHTML = on
             ? "<i class=\"ti ti-hand-click\"></i> 地図をタップすると、その場所にスポットを追加できます。"
-            : "<i class=\"ti ti-info-circle\"></i> 「地点追加」で、地図にスポットを登録できます。";
+            : "";
         if (!on && tempMarker) { tempMarker.remove(); tempMarker = null; }
     }
 
@@ -144,6 +147,12 @@
         pendingLatLng = e.latlng;
         // 宝箱があるエリアのときだけ、合言葉の欄と「宝箱のありか」を出す
         pendingTreasureArea = await api.inTreasureArea(session.team, e.latlng.lat, e.latlng.lng);
+        // 宝箱のありかで初めて合言葉を聞かれたら、第四幕の書類が届く
+        if (pendingTreasureArea && api.markAsked(session.team)) {
+            await refresh(false);
+            addMsg("bot", "合言葉…？\n書類の束に、見覚えのない一枚がまぎれていた。書類タブを見てみよう。", "ok");
+            notify("新しい書類「第四幕」が届いた。");
+        }
         $("passwordField").hidden = !pendingTreasureArea;
         const opt = $("spotCategory").querySelector("option[data-treasure]");
         if (pendingTreasureArea && !opt) {
@@ -191,7 +200,7 @@
             $("spotForm").reset();
             await refresh(false);
             if (res.status === "treasure") {
-                showClear();
+                showFinale();
             } else {
                 notify("スポットを登録しました。");
             }
@@ -202,12 +211,45 @@
         }
     });
 
-    function showClear() {
-        $("clearSheet").classList.add("open");
+    // ---------- 宝箱を開けたときの演出 ----------
+    function showFinale() {
+        const f = $("finale");
+        f.classList.remove("opened");
+        $("coins").innerHTML = "";
+        const t = state && state.cleared ? new Date(state.cleared) : new Date();
+        $("finaleTeam").textContent = (state ? state.team.name : "") + " ・ " +
+            t.getHours() + "時" + String(t.getMinutes()).padStart(2, "0") + "分に発見";
+        f.classList.add("open");
     }
 
-    $("clearClose").addEventListener("click", function() {
-        $("clearSheet").classList.remove("open");
+    function openChest() {
+        const f = $("finale");
+        if (f.classList.contains("opened")) return;
+        f.classList.add("opened");
+        if (navigator.vibrate) { try { navigator.vibrate([60, 40, 120]); } catch (e) { /* なにもしない */ } }
+        const box = $("coins");
+        for (let i = 0; i < 70; i++) {
+            const c = document.createElement("span");
+            c.className = "coin" + (i % 4 === 0 ? " petal" : "");
+            const ang = Math.random() * Math.PI * 2;
+            const dist = 25 + Math.random() * 40;
+            c.style.setProperty("--x", (Math.cos(ang) * dist).toFixed(1) + "vmin");
+            c.style.setProperty("--y", (Math.sin(ang) * dist - 25).toFixed(1) + "vmin");
+            c.style.setProperty("--r", (Math.random() * 720 - 360).toFixed(0) + "deg");
+            c.style.setProperty("--s", (8 + Math.random() * 12).toFixed(0) + "px");
+            c.style.setProperty("--d", (0.35 + Math.random() * 0.5).toFixed(2) + "s");
+            c.style.setProperty("--t", (2 + Math.random() * 1.6).toFixed(2) + "s");
+            box.appendChild(c);
+        }
+    }
+
+    $("chest").addEventListener("click", openChest);
+    $("chest").addEventListener("keydown", function(e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openChest(); }
+    });
+
+    $("finaleClose").addEventListener("click", function() {
+        $("finale").classList.remove("open");
         showView("mapView");
         const t = spots.find(function(s) { return s.is_treasure; });
         if (t) map.setView([t.lat, t.lng], 13);
@@ -372,6 +414,7 @@
                 if (res.new_points > 0) text += "\n宝箱のありかに一歩近づいたよ。";
                 const newly = GROUPS.filter(function(g) { return state.pages[g.key] && !before.pages[g.key]; });
                 newly.forEach(function(g) { text += "\n新しい書類「" + g.label + "」が届いた。書類タブを見てね。"; });
+                if (pid === "3-final") text += "\n…どこかで、何かが書き加えられる音がした。";
                 addMsg("bot", text, "ok");
                 applyState(true);
             } else if (res.status === "wrong") {
@@ -389,11 +432,14 @@
 
     // ---------- 状態の反映 ----------
     function applyState(fresh) {
-        $("statSolved").textContent = state.solved.length;
-        $("statSolvedTotal").textContent = state.puzzles.length;
-        $("statPoints").textContent = state.points.length;
-        $("statPointsTotal").textContent = state.total_points;
+        $("progressNote").textContent = "解いた書類 " + state.solved.length + " / " + state.puzzles.length;
         drawPoints(fresh);
+        // 第三幕の最終謎を解くと、地図に「地点追加」が現れる
+        const wasHidden = $("mapBar").hidden;
+        $("mapBar").hidden = !state.spotUnlocked;
+        if (wasHidden && state.spotUnlocked && fresh) {
+            $("addModeButton").classList.add("appear");
+        }
         const hasUnseen = GROUPS.some(function(g) { return state.pages[g.key] && seenGroups.indexOf(g.key) < 0; });
         if (hasUnseen && !$("docView").classList.contains("active")) $("dotDoc").classList.add("show");
         renderDocTabs();
@@ -417,7 +463,7 @@
         chatLog = store("nazo-chat-" + team) || [];
         $("chat").innerHTML = "";
         if (chatLog.length === 0) {
-            addMsg("bot", "ようこそ、" + state.team.name + "。\n書類の答えがわかったら、ここで書類の番号を選んで答えを送ってね。正解すると、地図に点が増えていくよ。");
+            addMsg("bot", "ようこそ、" + state.team.name + "。\n書類の答えがわかったら、ここで書類の番号を選んで答えを書いてね。");
         } else {
             chatLog.forEach(function(m) { addMsg(m[0], m[1], m[2], m[3], false); });
         }

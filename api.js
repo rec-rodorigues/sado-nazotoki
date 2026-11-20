@@ -66,6 +66,8 @@
         const pages = { act1: D.pages.act1 };
         for (const group of Object.keys(D.requires)) {
             const req = D.requires[group];
+            // 第四幕は、宝箱のありかで合言葉を聞かれてはじめて届く
+            if (group === "act4" && !data.asked) continue;
             if (req.every(function(p) { return solved[p]; })) {
                 pages[group] = await decrypt("page:" + req.map(function(p) { return solved[p]; }).join("|"), D.pages[group]);
             }
@@ -83,7 +85,9 @@
             points: points,
             total_points: D.total_points,
             pages: pages,
-            cleared: treasure ? treasure.created_at : null
+            cleared: treasure ? treasure.created_at : null,
+            spotUnlocked: !!solved["3-final"],
+            asked: !!data.asked
         };
     }
 
@@ -146,6 +150,15 @@
             });
             save(team, data);
             return { status: treasure ? "treasure" : "added" };
+        },
+
+        // 宝箱のありかで合言葉を聞かれた（第四幕の書類が届く）
+        markAsked(team) {
+            const data = load(team);
+            if (data.asked) return false;
+            data.asked = true;
+            save(team, data);
+            return true;
         },
 
         reset(team) {

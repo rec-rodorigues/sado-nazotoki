@@ -2,124 +2,146 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <!-- サークル内で使うサイトなので、検索エンジンの検索結果に載せない -->
     <meta name="robots" content="noindex, nofollow, noarchive">
-    <title>宝箱をさがせ｜佐渡島マップ</title>
+    <meta name="theme-color" content="#1B2F44">
+    <title>佐渡の宝箱</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@600;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Shippori+Mincho+B1:wght@600;800&display=swap">
 
     <style>
         /* =========================================
-           和モダンの配色（佐渡島マップと同じ：和紙・墨・朱）
+           配色：佐渡の海（藍）・金山の金・トキ色・古い紙
            ========================================= */
         :root {
-            --washi: #F5F0E6;
-            --card: #FFFCF6;
-            --line: #DED3BF;
-            --line-strong: #C9BBA2;
-            --sumi: #2B2622;
-            --sub: #6F665B;
+            --umi: #1B2F44;          /* 佐渡の海 */
+            --umi-2: #284763;
+            --umi-soft: #DCE4EA;
+            --kin: #C49A3A;          /* 金山の金 */
+            --kin-light: #E9CF8A;
+            --kin-dark: #8A6A1E;
+            --toki: #E9A3A8;         /* トキ色 */
+            --toki-dark: #B5555E;
             --shu: #B33A2B;
-            --shu-dark: #8E2E20;
-            --shu-soft: #F3E3DC;
-            --kin: #A5822F;
-            --kin-soft: #F2EAD3;
-            --koke: #5B7C4F;
-            --koke-soft: #E5ECDD;
-            --ai: #3E5C76;
-            --radius: 4px;
-            --serif: "Noto Serif JP", "Yu Mincho", serif;
+            --paper: #F4ECDB;        /* 古い紙 */
+            --paper-2: #FBF6EA;
+            --ink: #2A241D;
+            --sub: #6E6352;
+            --line: #D9CAA9;
+            --radius: 6px;
+            --serif: "Shippori Mincho B1", "Yu Mincho", "Hiragino Mincho ProN", serif;
             --sans: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
         }
 
         * { box-sizing: border-box; }
 
-        html, body { height: 100%; }
+        html { background: var(--umi); }
 
         body {
             margin: 0;
-            background: var(--washi);
-            color: var(--sumi);
+            min-height: 100vh;
+            color: var(--ink);
             font-family: var(--sans);
             font-size: 15px;
             line-height: 1.6;
+            /* 古い紙：ふちが少し焼けた色 */
+            background:
+                radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.55), transparent 60%),
+                radial-gradient(ellipse at 50% 120%, rgba(150, 110, 50, 0.18), transparent 60%),
+                var(--paper);
+            background-attachment: fixed;
         }
 
-        button, input, select, textarea {
-            font-family: inherit;
-            font-size: 16px;
-            color: inherit;
-        }
+        button, input, select, textarea { font-family: inherit; font-size: 16px; color: inherit; }
 
         .ti { font-size: 1.1em; vertical-align: -0.12em; }
 
-        .page {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 0 16px 96px;
+        [hidden] { display: none !important; }
+
+        /* ヘッダー：夜の海と青海波 */
+        .site-header {
+            position: relative;
+            color: var(--paper-2);
+            padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 22px;
+            background:
+                radial-gradient(circle at 50% 100%, transparent 15px, rgba(255, 255, 255, 0.07) 16px, rgba(255, 255, 255, 0.07) 18px, transparent 19px, transparent 23px, rgba(255, 255, 255, 0.05) 24px, rgba(255, 255, 255, 0.05) 26px, transparent 27px) 0 0 / 40px 20px,
+                linear-gradient(180deg, #13243A 0%, var(--umi) 70%, var(--umi-2) 100%);
+            border-bottom: 3px solid var(--kin);
         }
 
-        /* ヘッダー */
-        .site-header {
+        .header-inner {
+            max-width: 1000px;
+            margin: 0 auto;
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 16px 0 12px;
-            border-bottom: 1px solid var(--line);
         }
 
-        .site-logo {
-            width: 40px;
-            height: 40px;
-            border-radius: var(--radius);
-            background: var(--sumi);
-            color: var(--card);
+        .crest {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--kin);
+            background: radial-gradient(circle at 35% 30%, #2F4C69, #10202F);
+            color: var(--kin-light);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
+            font-size: 24px;
             flex-shrink: 0;
+            box-shadow: 0 0 0 4px rgba(196, 154, 58, 0.15);
         }
 
         .site-title {
             margin: 0;
             font-family: var(--serif);
-            font-weight: 700;
-            font-size: 22px;
-            letter-spacing: 0.08em;
+            font-weight: 800;
+            font-size: 24px;
+            letter-spacing: 0.18em;
             line-height: 1.2;
+            color: var(--kin-light);
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
         }
 
         .site-subtitle {
-            margin: 2px 0 0;
+            margin: 3px 0 0;
             font-size: 12px;
-            color: var(--sub);
-            letter-spacing: 0.1em;
+            color: rgba(251, 246, 234, 0.75);
+            letter-spacing: 0.12em;
         }
 
         .header-spacer { flex: 1; }
 
         .team-badge {
             font-size: 13px;
-            border: 1px solid var(--line-strong);
+            border: 1px solid var(--kin);
+            color: var(--kin-light);
             border-radius: 999px;
-            padding: 2px 10px;
-            background: var(--card);
+            padding: 3px 12px;
+            background: rgba(0, 0, 0, 0.2);
             white-space: nowrap;
+            cursor: pointer;
         }
 
-        /* カード・ボタン・入力欄 */
+        .page {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 16px 110px;
+        }
+
+        /* 紙のカード */
         .card {
-            background: var(--card);
+            background: var(--paper-2);
             border: 1px solid var(--line);
             border-radius: var(--radius);
             padding: 14px 16px;
             margin: 14px 0;
+            box-shadow: 0 2px 0 rgba(120, 90, 40, 0.08);
         }
 
         .btn {
@@ -127,90 +149,120 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            padding: 9px 14px;
-            border: 1px solid var(--line-strong);
+            padding: 10px 16px;
+            border: 1px solid var(--line);
             border-radius: var(--radius);
-            background: var(--card);
-            color: var(--sumi);
+            background: var(--paper-2);
+            color: var(--ink);
             cursor: pointer;
             line-height: 1.4;
             white-space: nowrap;
             font-size: 15px;
         }
 
-        .btn:hover { background: var(--washi); }
         .btn:active { transform: translateY(1px); }
         .btn:disabled { opacity: 0.5; cursor: default; }
 
-        .btn-primary { background: var(--shu); border-color: var(--shu); color: #fff; }
-        .btn-primary:hover { background: var(--shu-dark); border-color: var(--shu-dark); }
-        .btn-primary.on { background: var(--sumi); border-color: var(--sumi); }
+        .btn-primary {
+            background: linear-gradient(180deg, #2C4A68, var(--umi));
+            border-color: var(--umi);
+            color: var(--kin-light);
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
 
-        input[type=text], input[type=password], input[type=tel], select, textarea {
+        .btn-gold {
+            background: linear-gradient(180deg, #E2C077, var(--kin));
+            border-color: var(--kin-dark);
+            color: #3A2A08;
+            font-weight: 700;
+        }
+
+        input[type=text], select, textarea {
             width: 100%;
-            padding: 9px 10px;
-            border: 1px solid var(--line-strong);
+            padding: 10px 11px;
+            border: 1px solid var(--line);
             border-radius: var(--radius);
             background: #fff;
         }
 
-        input:focus, select:focus, textarea:focus, .btn:focus-visible {
-            outline: 2px solid var(--shu);
+        input:focus, select:focus, textarea:focus, .btn:focus-visible, .chip:focus-visible {
+            outline: 2px solid var(--kin);
             outline-offset: 1px;
         }
 
-        .field-label {
-            display: block;
-            font-size: 13px;
-            color: var(--sub);
-            margin: 10px 0 4px;
-        }
-
+        .field-label { display: block; font-size: 13px; color: var(--sub); margin: 10px 0 4px; }
         .small-note { font-size: 12px; color: var(--sub); }
+        .error-text { color: var(--shu); font-size: 13px; min-height: 1.4em; margin: 6px 0 0; }
 
-        .demo-banner {
-            background: var(--kin-soft);
-            border: 1px solid var(--kin);
-            color: #6E5517;
-            font-size: 13px;
-            border-radius: var(--radius);
-            padding: 6px 10px;
-            margin-top: 12px;
-        }
-
-        /* ログイン */
-        #loginView .card { max-width: 420px; margin: 28px auto; }
-        #loginView h2 { font-family: var(--serif); margin: 0 0 4px; font-size: 20px; }
-        .login-error { color: var(--shu); font-size: 13px; min-height: 1.4em; margin: 6px 0 0; }
-
-        /* 進み具合 */
-        .progress-row {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
-
-        .stat {
-            flex: 1 1 120px;
-            background: var(--card);
+        /* ログイン：封筒 */
+        .envelope {
+            position: relative;
+            max-width: 420px;
+            margin: 34px auto 20px;
+            background: var(--paper-2);
             border: 1px solid var(--line);
-            border-radius: var(--radius);
-            padding: 8px 12px;
+            border-radius: 4px;
+            padding: 64px 22px 22px;
+            box-shadow: 0 10px 30px rgba(27, 47, 68, 0.18);
+            overflow: hidden;
         }
 
-        .stat b { font-family: var(--serif); font-size: 22px; }
-        .stat span { font-size: 12px; color: var(--sub); display: block; }
+        .envelope::before {
+            /* 封筒のふた */
+            content: "";
+            position: absolute;
+            left: -1px;
+            right: -1px;
+            top: 0;
+            height: 70px;
+            background: linear-gradient(180deg, #EADBB8, #E3D2AB);
+            clip-path: polygon(0 0, 100% 0, 50% 100%);
+        }
 
-        /* 下のタブ */
+        .seal {
+            position: absolute;
+            left: 50%;
+            top: 44px;
+            transform: translateX(-50%);
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #D25A4A, var(--shu) 60%, #7E2318);
+            color: #F8D9CF;
+            font-family: var(--serif);
+            font-weight: 800;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 0 0 3px rgba(255, 255, 255, 0.12);
+        }
+
+        .envelope h2 {
+            font-family: var(--serif);
+            margin: 34px 0 6px;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 0.1em;
+        }
+
+        .envelope .to {
+            text-align: center;
+            font-family: var(--serif);
+            color: var(--sub);
+            margin: 0 0 10px;
+        }
+
+        /* 下のタブ：藍と金 */
         .tabbar {
             position: fixed;
             left: 0;
             right: 0;
             bottom: 0;
             display: flex;
-            background: var(--card);
-            border-top: 1px solid var(--line-strong);
+            background: var(--umi);
+            border-top: 2px solid var(--kin);
             z-index: 1000;
             padding-bottom: env(safe-area-inset-bottom, 0px);
         }
@@ -225,13 +277,19 @@
             align-items: center;
             gap: 2px;
             font-size: 12px;
-            color: var(--sub);
+            color: rgba(251, 246, 234, 0.6);
             cursor: pointer;
             position: relative;
+            letter-spacing: 0.1em;
         }
 
         .tabbar button .ti { font-size: 24px; }
-        .tabbar button.active { color: var(--shu); font-weight: 700; }
+        .tabbar button.active { color: var(--kin-light); font-weight: 700; }
+
+        /* 地図のタブは控えめに（小さく、薄く） */
+        .tabbar button.quiet { flex: 0.7; color: rgba(251, 246, 234, 0.35); }
+        .tabbar button.quiet .ti { font-size: 20px; }
+        .tabbar button.quiet.active { color: var(--kin-light); }
 
         .tabbar .dot {
             position: absolute;
@@ -240,124 +298,56 @@
             width: 9px;
             height: 9px;
             border-radius: 50%;
-            background: var(--shu);
+            background: var(--toki);
             display: none;
         }
 
         .tabbar .dot.show { display: block; }
 
-        [hidden] { display: none !important; }
-
         .view { display: none; }
         .view.active { display: block; }
 
-        /* 地図 */
-        .map-bar {
+        /* 書類 */
+        .doc-head {
             display: flex;
             align-items: center;
             gap: 10px;
-            flex-wrap: wrap;
+            padding-top: 12px;
         }
 
-        .map-bar .grow { flex: 1; min-width: 160px; font-size: 13px; color: var(--sub); }
-
-        #map {
-            height: min(68vh, 620px);
-            width: 100%;
-            border: 1px solid var(--line);
-            border-radius: var(--radius);
-            background: #E9E4D8;
-        }
-
-        #map .leaflet-tile-pane {
-            filter: sepia(0.3) saturate(0.7) brightness(1.02);
-        }
-
-        #map.adding { cursor: crosshair; }
-
-        .leaflet-bar {
-            border: 1px solid var(--line-strong) !important;
-            border-radius: var(--radius) !important;
-            box-shadow: none !important;
-            overflow: hidden;
-        }
-
-        .leaflet-bar a { background: var(--card) !important; color: var(--sumi) !important; }
-
-        .leaflet-popup-content-wrapper {
-            background: var(--card);
-            border: 1px solid var(--line-strong);
-            border-radius: var(--radius);
-            box-shadow: 0 4px 14px rgba(43, 38, 34, 0.15);
-        }
-
-        .leaflet-popup-content { font-family: var(--sans); margin: 12px 14px; }
-
-        /* しずく型のピン（佐渡島マップと同じ形） */
-        .pin-marker { background: none; border: none; }
-
-        .pin {
-            width: 32px;
-            height: 32px;
-            border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
-            background: var(--pin-color, var(--sumi));
-            border: 2px solid var(--card);
-            box-shadow: 0 2px 6px rgba(43, 38, 34, 0.35);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .pin > * { transform: rotate(45deg); color: var(--card); }
-        .pin .pin-mark { font-family: var(--serif); font-weight: 700; font-size: 14px; }
-        .pin .ti { font-size: 17px; }
-        .pin.pin-temp { background: var(--card); border: 2px dashed var(--shu); }
-        .pin.pin-temp .ti { color: var(--shu); }
-        .pin.pin-treasure { background: var(--kin); width: 40px; height: 40px; }
-        .pin.pin-treasure .ti { font-size: 22px; }
-
-        /* トキの点 */
-        .toki-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--shu);
-            border: 2px solid var(--card);
-            box-shadow: 0 0 0 1px var(--shu-dark);
-        }
-
-        .toki-dot.new { animation: pop 1.2s ease-out 2; }
-
-        @keyframes pop {
-            0% { transform: scale(2.6); }
-            100% { transform: scale(1); }
-        }
-
-        /* 書類 */
         .doc-tabs {
             display: flex;
             gap: 6px;
             overflow-x: auto;
-            padding: 12px 0 8px;
+            padding: 2px 0 8px;
             scrollbar-width: thin;
+            flex: 1;
+        }
+
+        .progress-note {
+            font-size: 12px;
+            color: var(--sub);
+            white-space: nowrap;
+            padding-bottom: 6px;
         }
 
         .chip {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 5px 12px;
-            border: 1px solid var(--line-strong);
+            padding: 6px 14px;
+            border: 1px solid var(--line);
             border-radius: 999px;
-            background: var(--card);
+            background: var(--paper-2);
+            font-family: var(--serif);
+            font-weight: 600;
             font-size: 14px;
             cursor: pointer;
             white-space: nowrap;
         }
 
-        .chip.active { background: var(--sumi); border-color: var(--sumi); color: var(--card); }
-        .chip .new { width: 7px; height: 7px; border-radius: 50%; background: var(--shu); }
+        .chip.active { background: var(--umi); border-color: var(--umi); color: var(--kin-light); }
+        .chip .new { width: 7px; height: 7px; border-radius: 50%; background: var(--toki-dark); }
 
         #docFrame {
             width: 100%;
@@ -367,62 +357,68 @@
             background: transparent;
         }
 
-        /* 回答（チャット） */
+        /* 回答（チャット）：名もなき者との文通 */
         .chat {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            padding: 12px 0 170px;
+            gap: 12px;
+            padding: 14px 0 170px;
         }
 
         .msg { display: flex; gap: 8px; align-items: flex-end; max-width: 100%; }
         .msg.me { justify-content: flex-end; }
 
         .avatar {
-            width: 34px;
-            height: 34px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
-            background: var(--sumi);
-            color: var(--kin-soft);
+            background: radial-gradient(circle at 35% 30%, #D25A4A, var(--shu) 60%, #7E2318);
+            color: #F8D9CF;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            font-size: 18px;
+            font-family: var(--serif);
+            font-weight: 800;
+            font-size: 15px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
         }
 
         .bubble {
-            background: var(--card);
+            background: var(--paper-2);
             border: 1px solid var(--line);
             border-radius: 14px 14px 14px 4px;
-            padding: 8px 12px;
+            padding: 9px 13px;
             max-width: min(78%, 520px);
             white-space: pre-wrap;
             overflow-wrap: anywhere;
+            font-family: var(--serif);
+            font-size: 15px;
         }
 
         .msg.me .bubble {
-            background: var(--shu-soft);
-            border-color: #E5C3B8;
+            background: var(--umi);
+            border-color: var(--umi);
+            color: var(--paper-2);
             border-radius: 14px 14px 4px 14px;
+            font-family: var(--sans);
         }
 
         .bubble .tag {
             font-family: ui-monospace, Menlo, monospace;
-            font-size: 12px;
-            color: var(--sub);
+            font-size: 11px;
+            opacity: 0.7;
             display: block;
         }
 
-        .bubble.ok { border-color: var(--koke); background: var(--koke-soft); }
-        .bubble.ng { border-color: var(--line-strong); }
+        .bubble.ok { border-color: var(--kin); background: #FBF1D6; }
 
         .composer {
             position: fixed;
             left: 0;
             right: 0;
-            bottom: calc(62px + env(safe-area-inset-bottom, 0px));
-            background: var(--washi);
+            bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+            background: rgba(244, 236, 219, 0.96);
             border-top: 1px solid var(--line);
             padding: 10px 16px;
             z-index: 999;
@@ -440,11 +436,139 @@
             .composer-inner { grid-template-columns: 92px 1fr auto; }
         }
 
-        /* 地点追加フォーム（下からせり上がるシート） */
+        /* =========================================
+           地図（佐渡島マップのコピー。中の見た目は元のサイトのまま）
+           ========================================= */
+        .sadomap {
+            --washi: #F5F0E6;
+            --card: #FFFCF6;
+            --mline: #DED3BF;
+            --sumi: #2B2622;
+            background: var(--washi);
+            border: 1px solid var(--mline);
+            border-radius: 4px;
+            margin-top: 14px;
+            padding: 0 12px 12px;
+        }
+
+        .sadomap-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 0 10px;
+            border-bottom: 1px solid var(--mline);
+            margin-bottom: 10px;
+        }
+
+        .sadomap-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            background: var(--sumi);
+            color: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .sadomap-title { margin: 0; font-family: "Noto Serif JP", var(--serif); font-weight: 700; font-size: 18px; letter-spacing: 0.08em; color: var(--sumi); }
+        .sadomap-sub { margin: 0; font-size: 11px; color: #6F665B; letter-spacing: 0.1em; }
+
+        .map-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        .map-bar .grow { flex: 1; min-width: 160px; font-size: 13px; color: #6F665B; }
+
+        .map-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 4px;
+            border: 1px solid #B33A2B;
+            background: #B33A2B;
+            color: #fff;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .map-btn.on { background: var(--sumi); border-color: var(--sumi); }
+
+        /* 地点追加のボタンが現れたとき */
+        .map-btn.appear { animation: appear 1.4s ease-out 3; }
+
+        @keyframes appear {
+            0% { box-shadow: 0 0 0 0 rgba(196, 154, 58, 0.9); }
+            100% { box-shadow: 0 0 0 16px rgba(196, 154, 58, 0); }
+        }
+
+        #map {
+            height: min(66vh, 620px);
+            width: 100%;
+            border: 1px solid var(--mline);
+            border-radius: 4px;
+            background: #E9E4D8;
+        }
+
+        #map .leaflet-tile-pane { filter: sepia(0.3) saturate(0.7) brightness(1.02); }
+        #map.adding { cursor: crosshair; }
+
+        .leaflet-bar { border: 1px solid #C9BBA2 !important; border-radius: 4px !important; box-shadow: none !important; overflow: hidden; }
+        .leaflet-bar a { background: #FFFCF6 !important; color: #2B2622 !important; }
+
+        .leaflet-popup-content-wrapper {
+            background: #FFFCF6;
+            border: 1px solid #C9BBA2;
+            border-radius: 4px;
+            box-shadow: 0 4px 14px rgba(43, 38, 34, 0.15);
+        }
+
+        .leaflet-popup-content { font-family: var(--sans); margin: 12px 14px; }
+
+        .pin-marker { background: none; border: none; }
+
+        .pin {
+            width: 32px;
+            height: 32px;
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            background: var(--pin-color, #2B2622);
+            border: 2px solid #FFFCF6;
+            box-shadow: 0 2px 6px rgba(43, 38, 34, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pin > * { transform: rotate(45deg); color: #FFFCF6; }
+        .pin .pin-mark { font-family: "Noto Serif JP", var(--serif); font-weight: 700; font-size: 14px; }
+        .pin .ti { font-size: 17px; }
+        .pin.pin-temp { background: #FFFCF6; border: 2px dashed #B33A2B; }
+        .pin.pin-temp .ti { color: #B33A2B; }
+        .pin.pin-treasure { background: var(--kin); width: 40px; height: 40px; }
+        .pin.pin-treasure .ti { font-size: 22px; }
+
+        /* 点 */
+        .toki-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #B33A2B;
+            border: 2px solid #FFFCF6;
+            box-shadow: 0 0 0 1px #8E2E20;
+        }
+
+        /* 地点追加フォーム */
         .sheet-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(43, 38, 34, 0.35);
+            background: rgba(27, 47, 68, 0.45);
             z-index: 2000;
             display: none;
             align-items: flex-end;
@@ -454,7 +578,7 @@
         .sheet-overlay.open { display: flex; }
 
         .sheet-panel {
-            background: var(--card);
+            background: #FFFCF6;
             width: 100%;
             max-width: 520px;
             border-radius: 12px 12px 0 0;
@@ -463,20 +587,179 @@
             overflow-y: auto;
         }
 
-        .sheet-panel h2 { font-family: var(--serif); font-size: 19px; margin: 0; }
+        .sheet-panel h2 { font-family: "Noto Serif JP", var(--serif); font-size: 19px; margin: 0; }
         .sheet-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+        .sheet-actions .submit { background: #B33A2B; border-color: #B33A2B; color: #fff; }
 
-        /* クリア演出 */
-        .clear-panel { text-align: center; border-radius: 12px; margin: auto 16px; }
-        .clear-panel .big { font-size: 64px; color: var(--kin); line-height: 1; }
-        .clear-panel h2 { font-size: 24px; margin: 10px 0 6px; }
+        .password-box {
+            margin-top: 12px;
+            padding: 10px 12px 12px;
+            border: 1px solid var(--kin);
+            border-radius: 6px;
+            background: #FBF1D6;
+        }
+
+        .password-box .field-label { margin-top: 0; color: var(--kin-dark); font-weight: 700; }
+
+        /* =========================================
+           宝箱を開けたときの演出
+           ========================================= */
+        .finale {
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 42%, #2E4A68 0%, #0E1B2A 55%, #060C14 100%);
+            color: var(--paper-2);
+            text-align: center;
+            padding: 24px;
+        }
+
+        .finale.open { display: flex; }
+
+        .rays {
+            position: absolute;
+            left: 50%;
+            top: 40%;
+            width: 220vmax;
+            height: 220vmax;
+            margin: -110vmax 0 0 -110vmax;
+            background: repeating-conic-gradient(from 0deg, rgba(233, 207, 138, 0.16) 0deg 7deg, transparent 7deg 18deg);
+            -webkit-mask: radial-gradient(circle, #000 0%, transparent 45%);
+            mask: radial-gradient(circle, #000 0%, transparent 45%);
+            opacity: 0;
+            animation: spin 24s linear infinite;
+        }
+
+        .finale.opened .rays { animation: spin 24s linear infinite, fadein 1.2s 0.9s forwards; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadein { to { opacity: 1; } }
+
+        .chest {
+            position: relative;
+            width: min(260px, 64vw);
+            z-index: 2;
+            cursor: pointer;
+        }
+
+        .chest svg { width: 100%; height: auto; display: block; overflow: visible; }
+
+        .chest .lid {
+            transform-box: fill-box;
+            transform-origin: 50% 100%;
+            transition: transform 0.9s cubic-bezier(.3, 1.6, .5, 1);
+        }
+
+        .finale.opened .chest .lid { transform: translateY(-38px) rotate(-14deg); }
+
+        .chest .glow { opacity: 0; transition: opacity 0.6s 0.4s; }
+        .finale.opened .chest .glow { opacity: 1; }
+
+        .finale:not(.opened) .chest { animation: shake 1.6s ease-in-out infinite; }
+
+        @keyframes shake {
+            0%, 70%, 100% { transform: rotate(0); }
+            75% { transform: rotate(-3deg); }
+            80% { transform: rotate(3deg); }
+            85% { transform: rotate(-2deg); }
+            90% { transform: rotate(2deg); }
+        }
+
+        .tap-hint {
+            position: relative;
+            z-index: 2;
+            margin-top: 18px;
+            font-family: var(--serif);
+            letter-spacing: 0.2em;
+            color: var(--kin-light);
+            animation: blink 1.6s ease-in-out infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0.35; } }
+
+        .finale.opened .tap-hint { display: none; }
+
+        .finale-text {
+            position: relative;
+            z-index: 2;
+            max-width: 420px;
+            opacity: 0;
+            transform: translateY(14px);
+        }
+
+        .finale.opened .finale-text { animation: rise 1s 1.3s forwards; }
+
+        @keyframes rise { to { opacity: 1; transform: none; } }
+
+        .finale-text h2 {
+            font-family: var(--serif);
+            font-weight: 800;
+            font-size: clamp(28px, 8vw, 40px);
+            letter-spacing: 0.2em;
+            margin: 18px 0 6px;
+            color: var(--kin-light);
+            text-shadow: 0 0 18px rgba(233, 207, 138, 0.6);
+        }
+
+        .finale-team { font-size: 14px; color: rgba(251, 246, 234, 0.75); margin: 0 0 14px; }
+
+        .finale-letter {
+            background: var(--paper-2);
+            color: var(--ink);
+            font-family: var(--serif);
+            text-align: left;
+            border-radius: 4px;
+            padding: 16px 18px;
+            line-height: 2;
+            white-space: pre-line;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            margin: 0 0 16px;
+        }
+
+        .finale-letter .sign { display: block; text-align: right; }
+
+        .coin {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            width: var(--s, 14px);
+            height: var(--s, 14px);
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, #FFF1BE, var(--kin) 55%, var(--kin-dark));
+            box-shadow: 0 0 6px rgba(255, 220, 130, 0.7);
+            z-index: 1;
+            opacity: 0;
+            animation: burst var(--t, 2.4s) cubic-bezier(.2, .7, .4, 1) var(--d, 0s) forwards;
+        }
+
+        .coin.petal {
+            border-radius: 60% 0 60% 0;
+            background: linear-gradient(135deg, #F6C9CC, var(--toki));
+            box-shadow: none;
+        }
+
+        @keyframes burst {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(0.4); }
+            40% { opacity: 1; transform: translate(calc(-50% + var(--x) * 0.7), calc(-50% + var(--y) * 0.7)) rotate(calc(var(--r) * 0.5)); }
+            100% { opacity: 0; transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 40vh)) rotate(var(--r)); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rays, .coin, .finale:not(.opened) .chest, .tap-hint { animation: none !important; }
+            .finale.opened .rays { opacity: 1; }
+        }
 
         /* お知らせ */
         #toastArea {
             position: fixed;
             left: 50%;
             transform: translateX(-50%);
-            bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
             z-index: 3000;
             display: flex;
             flex-direction: column;
@@ -486,60 +769,53 @@
         }
 
         .toast {
-            background: var(--sumi);
-            color: var(--card);
-            border-radius: var(--radius);
+            background: var(--umi);
+            color: var(--paper-2);
+            border-left: 3px solid var(--kin);
+            border-radius: 4px;
             padding: 9px 12px;
             font-size: 14px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
-
-        .toast.error { background: var(--shu-dark); }
     </style>
 </head>
 <body>
-<div class="page">
 
-    <header class="site-header">
-        <div class="site-logo" aria-hidden="true"><i class="ti ti-map-2"></i></div>
+<header class="site-header">
+    <div class="header-inner">
+        <div class="crest" aria-hidden="true"><i class="ti ti-compass"></i></div>
         <div>
-            <h1 class="site-title">佐渡島マップ</h1>
-            <p class="site-subtitle">宝箱をさがせ ・ 佐渡旅代替交流会</p>
+            <h1 class="site-title">佐渡の宝箱</h1>
+            <p class="site-subtitle">名もなき者からの手紙 ・ 佐渡旅代替交流会</p>
         </div>
         <span class="header-spacer"></span>
-        <span id="teamBadge" class="team-badge" hidden></span>
-    </header>
+        <button id="teamBadge" type="button" class="team-badge" hidden></button>
+    </div>
+</header>
 
+<div class="page">
 
-    <!-- ログイン -->
+    <!-- ログイン：封筒 -->
     <section id="loginView" class="view">
-        <div class="card">
-            <h2>チームを選んでください</h2>
-            <p class="small-note">謎解きは、チームで1台の端末を使って進めます。進み具合はこの端末に保存されるので、途中で別の端末に替えないでください。</p>
+        <div class="envelope">
+            <div class="seal" aria-hidden="true">封</div>
+            <h2>一通の手紙が届いた</h2>
+            <p class="to">RECの皆さんへ</p>
+            <p class="small-note">チームで1台の端末を使って進めます。進み具合はこの端末に保存されるので、途中で別の端末に替えないでください。</p>
             <label class="field-label" for="teamSelect">チーム</label>
             <select id="teamSelect"></select>
-            <p id="loginError" class="login-error"></p>
-            <button id="loginButton" type="button" class="btn btn-primary" style="width:100%;margin-top:6px"><i class="ti ti-door-enter"></i>はじめる</button>
-            <button id="resetButton" type="button" class="btn" style="width:100%;margin-top:10px;font-size:13px;color:var(--sub)"><i class="ti ti-trash"></i>このチームの進み具合を消す（運営用）</button>
+            <p id="loginError" class="error-text"></p>
+            <button id="loginButton" type="button" class="btn btn-primary" style="width:100%"><i class="ti ti-mail-opened"></i>封を開ける</button>
         </div>
-    </section>
-
-    <!-- 地図 -->
-    <section id="mapView" class="view">
-        <div class="progress-row">
-            <div class="stat"><b id="statSolved">0</b> / <span style="display:inline" id="statSolvedTotal">0</span><span>解いた書類</span></div>
-            <div class="stat"><b id="statPoints">0</b> / <span style="display:inline" id="statPointsTotal">60</span><span>地図の点</span></div>
-        </div>
-        <div class="card map-bar">
-            <span class="grow" id="mapHint"><i class="ti ti-info-circle"></i> 書類を解くと、地図に点が増えていきます。</span>
-            <button id="addModeButton" type="button" class="btn btn-primary"><i class="ti ti-map-pin-plus"></i>地点追加</button>
-        </div>
-        <div id="map"></div>
+        <button id="resetButton" type="button" class="btn" style="display:flex;margin:0 auto;font-size:12px;color:var(--sub);background:none;border:none"><i class="ti ti-trash"></i>このチームの進み具合を消す（運営用）</button>
     </section>
 
     <!-- 書類 -->
     <section id="docView" class="view">
-        <div id="docTabs" class="doc-tabs" role="tablist"></div>
+        <div class="doc-head">
+            <div id="docTabs" class="doc-tabs" role="tablist"></div>
+            <span id="progressNote" class="progress-note"></span>
+        </div>
         <div id="docError" class="card" hidden>
             書類を読み込めませんでした。画面を再読み込みしてください。
             <button type="button" class="btn btn-primary" style="margin-top:8px" onclick="location.reload()"><i class="ti ti-refresh"></i>再読み込み</button>
@@ -551,20 +827,38 @@
     <section id="chatView" class="view">
         <div id="chat" class="chat" aria-live="polite"></div>
     </section>
+
+    <!-- 地図（佐渡島マップのコピー） -->
+    <section id="mapView" class="view">
+        <div class="sadomap">
+            <div class="sadomap-header">
+                <div class="sadomap-logo" aria-hidden="true"><i class="ti ti-map-2"></i></div>
+                <div>
+                    <p class="sadomap-title">佐渡島マップ</p>
+                    <p class="sadomap-sub">佐渡での活動・宿泊・観光の記録</p>
+                </div>
+            </div>
+            <div id="mapBar" class="map-bar" hidden>
+                <span class="grow" id="mapHint"></span>
+                <button id="addModeButton" type="button" class="map-btn"><i class="ti ti-map-pin-plus"></i>地点追加</button>
+            </div>
+            <div id="map"></div>
+        </div>
+    </section>
 </div>
 
 <div id="composer" class="composer" hidden>
     <form id="answerForm" class="composer-inner">
         <select id="puzzleSelect" aria-label="書類の番号"></select>
-        <input id="answerInput" type="text" autocomplete="off" placeholder="答えを入力" aria-label="答え">
+        <input id="answerInput" type="text" autocomplete="off" placeholder="答えを書く" aria-label="答え">
         <button type="submit" class="btn btn-primary" aria-label="送る"><i class="ti ti-send"></i></button>
     </form>
 </div>
 
 <nav id="tabbar" class="tabbar" hidden>
-    <button type="button" data-view="mapView"><i class="ti ti-map"></i>地図</button>
     <button type="button" data-view="docView"><i class="ti ti-files"></i>書類<span class="dot" id="dotDoc"></span></button>
-    <button type="button" data-view="chatView"><i class="ti ti-message-circle"></i>回答</button>
+    <button type="button" data-view="chatView"><i class="ti ti-feather"></i>回答</button>
+    <button type="button" data-view="mapView" class="quiet"><i class="ti ti-map"></i>地図</button>
 </nav>
 
 <!-- 地点追加フォーム -->
@@ -584,33 +878,87 @@
         </select>
         <label class="field-label" for="spotNote">メモ（任意）</label>
         <input id="spotNote" type="text" maxlength="200">
-        <div id="passwordField" hidden>
-            <label class="field-label" for="spotPassword"><i class="ti ti-key"></i> 合言葉</label>
-            <input id="spotPassword" type="text" autocomplete="off" placeholder="この場所の登録には合言葉が必要です">
+        <div id="passwordField" class="password-box" hidden>
+            <label class="field-label" for="spotPassword"><i class="ti ti-key"></i> この場所に登録するには、合言葉が必要です</label>
+            <input id="spotPassword" type="text" autocomplete="off" placeholder="合言葉">
         </div>
-        <p id="spotError" class="login-error"></p>
+        <p id="spotError" class="error-text"></p>
         <div class="sheet-actions">
             <button type="button" class="btn" id="spotCancel">やめる</button>
-            <button type="submit" class="btn btn-primary" id="spotSubmit"><i class="ti ti-device-floppy"></i>登録</button>
+            <button type="submit" class="btn submit" id="spotSubmit"><i class="ti ti-device-floppy"></i>登録</button>
         </div>
     </form>
 </div>
 
-<!-- クリア -->
-<div id="clearSheet" class="sheet-overlay" style="align-items:center" role="dialog" aria-modal="true">
-    <div class="sheet-panel clear-panel">
-        <div class="big"><i class="ti ti-treasure-chest"></i></div>
-        <h2 class="site-title">宝箱を見つけた！</h2>
-        <p id="clearText">トキのくちばしの先、佐渡金山に宝箱があった。</p>
-        <button type="button" class="btn btn-primary" id="clearClose">地図を見る</button>
+<!-- 宝箱を開けたとき -->
+<div id="finale" class="finale" role="dialog" aria-modal="true" aria-label="宝箱">
+    <div class="rays" aria-hidden="true"></div>
+    <div id="coins" aria-hidden="true"></div>
+    <div class="chest" id="chest" role="button" tabindex="0" aria-label="宝箱を開ける">
+        <svg viewBox="0 0 240 200" aria-hidden="true">
+            <defs>
+                <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="#7A4A22"/>
+                    <stop offset="1" stop-color="#4E2D12"/>
+                </linearGradient>
+                <linearGradient id="gold" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="#F6DE9A"/>
+                    <stop offset="1" stop-color="#B8892A"/>
+                </linearGradient>
+                <radialGradient id="light" cx="0.5" cy="1" r="0.8">
+                    <stop offset="0" stop-color="#FFF6CF" stop-opacity="1"/>
+                    <stop offset="1" stop-color="#FFE08A" stop-opacity="0"/>
+                </radialGradient>
+            </defs>
+            <!-- 中からあふれる光 -->
+            <ellipse class="glow" cx="120" cy="96" rx="120" ry="90" fill="url(#light)"/>
+            <!-- 箱の中の金貨 -->
+            <g class="glow">
+                <ellipse cx="120" cy="104" rx="88" ry="12" fill="#E8C266"/>
+                <circle cx="88" cy="99" r="9" fill="url(#gold)"/>
+                <circle cx="110" cy="96" r="10" fill="url(#gold)"/>
+                <circle cx="134" cy="98" r="9" fill="url(#gold)"/>
+                <circle cx="154" cy="101" r="8" fill="url(#gold)"/>
+            </g>
+            <!-- 箱 -->
+            <rect x="24" y="100" width="192" height="86" rx="6" fill="url(#wood)"/>
+            <rect x="24" y="100" width="192" height="12" fill="url(#gold)"/>
+            <rect x="24" y="174" width="192" height="12" rx="3" fill="url(#gold)"/>
+            <rect x="52" y="100" width="12" height="86" fill="url(#gold)"/>
+            <rect x="176" y="100" width="12" height="86" fill="url(#gold)"/>
+            <rect x="106" y="116" width="28" height="34" rx="4" fill="url(#gold)"/>
+            <circle cx="120" cy="130" r="5" fill="#3A2408"/>
+            <rect x="118" y="132" width="4" height="10" fill="#3A2408"/>
+            <!-- ふた -->
+            <g class="lid">
+                <path d="M24 100 V64 Q24 30 120 30 Q216 30 216 64 V100 Z" fill="url(#wood)"/>
+                <path d="M24 100 V92 H216 V100 Z" fill="url(#gold)"/>
+                <path d="M52 100 V44 Q56 36 64 34 V100 Z" fill="url(#gold)"/>
+                <path d="M188 100 V44 Q184 36 176 34 V100 Z" fill="url(#gold)"/>
+                <path d="M106 100 V30 H134 V100 Z" fill="url(#gold)" opacity="0.9"/>
+            </g>
+        </svg>
+    </div>
+    <p class="tap-hint">宝箱をタップして開ける</p>
+    <div class="finale-text">
+        <h2>宝箱を開けた！</h2>
+        <p class="finale-team" id="finaleTeam"></p>
+        <div class="finale-letter">見事だ。
+トキのくちばしが指す先、佐渡金山。
+金の島が守ってきた宝箱は、君たちのものだ。
+
+本当の佐渡は、まだ君たちを待っている。
+春、佐渡で会おう。<span class="sign">―― 名もなき者より</span></div>
+        <p class="small-note" style="color:rgba(251,246,234,.75)">この画面を運営に見せてください。</p>
+        <button type="button" class="btn btn-gold" id="finaleClose"><i class="ti ti-map"></i>地図に戻る</button>
     </div>
 </div>
 
 <div id="toastArea" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data.js?v=202611200900"></script>
-<script src="api.js?v=202611200900"></script>
-<script src="app.js?v=202611200900"></script>
+<script src="data.js?v=202611201200"></script>
+<script src="api.js?v=202611201200"></script>
+<script src="app.js?v=202611201200"></script>
 </body>
 </html>
