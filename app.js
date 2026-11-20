@@ -15,6 +15,7 @@
     let session = null;     // { team, code }
     let state = null;
     let currentGroup = null;
+    let loadedGroup = null;
     let seenGroups = [];
     let knownPoints = new Set();
 
@@ -373,10 +374,16 @@
             seenGroups.push(key);
             store("nazo-seen-" + session.team, seenGroups);
         }
-        const src = new URL("p/" + state.pages[key] + ".html?v=" + (window.NAZO_DATA.version || ""), location.href).href;
-        if (!$("docFrame").src.endsWith(src)) {
+        if (loadedGroup !== key) {
+            loadedGroup = key;
             $("docFrame").style.height = "400px";
-            $("docFrame").src = src;
+            api.page(key).then(function(html) {
+                if (loadedGroup === key) $("docFrame").srcdoc = html;
+            }).catch(function(err) {
+                loadedGroup = null;
+                $("docError").hidden = false;
+                notify(err.message, true);
+            });
         }
         renderDocTabs();
     }
@@ -565,11 +572,25 @@
         showView(store("nazo-view") || "docView");
     }
 
+    function renderStartField() {
+        $("startField").hidden = api.started();
+    }
+
     $("loginButton").addEventListener("click", async function() {
         const team = Number($("teamSelect").value);
         const code = "";
         $("loginError").textContent = "";
         try {
+            // 当日、運営から伝えられる「開始の合言葉」がないと始められない
+            if (!api.started()) {
+                const ok = await api.start($("startInput").value);
+                if (!ok) {
+                    $("loginError").textContent = $("startInput").value.trim()
+                        ? "開始の合言葉がちがいます。"
+                        : "当日、運営から伝えられる「開始の合言葉」を入れてください。";
+                    return;
+                }
+            }
             await start(team, code);
         } catch (err) {
             session = null;
@@ -579,11 +600,12 @@
 
     $("resetButton").addEventListener("click", function() {
         const team = Number($("teamSelect").value);
-        if (!confirm("チーム" + team + "の、この端末の進み具合をすべて消します。よいですか？")) return;
+        const tname = $("teamSelect").selectedOptions[0] ? $("teamSelect").selectedOptions[0].textContent : "このチーム";
+        if (!confirm(tname + "の、この端末の進み具合をすべて消します。よいですか？")) return;
         api.reset(team);
         store("nazo-chat-" + team, []);
         store("nazo-seen-" + team, []);
-        notify("チーム" + team + "の進み具合を消しました。");
+        notify(tname + "の進み具合を消しました。");
     });
 
     $("teamBadge").addEventListener("click", function() {
@@ -610,6 +632,7 @@
                 store("nazo-session", null);
             }
         }
+        renderStartField();
         showView("loginView");
     }
 

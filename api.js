@@ -6,7 +6,11 @@
 // =========================================
 (function() {
     const D = window.NAZO_DATA;
-    const TEAMS = [1, 2, 3, 4].map(function(i) { return { id: i, name: "チーム" + i }; });
+    const TEAMS = [
+        { id: 1, name: "チームおけさ" },
+        { id: 2, name: "チームいごねり" },
+        { id: 3, name: "チームずわい" }
+    ];
 
     function normalize(text) {
         let t = String(text || "").normalize("NFKC").toLowerCase();
@@ -43,6 +47,19 @@
 
     const key = function(team) { return "nazo-progress-" + team; };
 
+    // ---------- 開始の合言葉（当日に運営が伝える） ----------
+    const START_KEY = "nazo-start";
+    function startCode() {
+        try { return localStorage.getItem(START_KEY) || ""; } catch (e) { return ""; }
+    }
+    function started() {
+        return !!startCode();
+    }
+    async function pageKey() {
+        const raw = await sha("sado-nazo-start-key:" + startCode());
+        return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["decrypt"]);
+    }
+
     function load(team) {
         try {
             const v = JSON.parse(localStorage.getItem(key(team)));
@@ -74,7 +91,8 @@
             puzzles: D.puzzles.map(function(p) { return { id: p.id, act: p.act, kind: p.kind }; }),
             points: points,
             total_points: D.total_points,
-            pages: D.pages,
+            pages: started() ? D.pages : {},
+            started: started(),
             // 第三幕をすべて解くと「宝箱を探す」が使える
             searchUnlocked: D.unlock.every(function(p) { return solved[p]; }),
             shovels: D.shovels,
@@ -107,6 +125,7 @@
             const st = await state(team);
             const p = D.puzzles.find(function(x) { return x.id === puzzleId; });
             if (!p) return { status: "unknown" };
+            if (!started()) return { status: "locked" };
             if (st.solved.indexOf(puzzleId) >= 0) return { status: "already" };
             const typed = normalize(answer);
             const i = p.hashes.indexOf(await hashAnswer(typed));
@@ -152,6 +171,26 @@
             data.used = 0;
             save(team, data);
             return true;
+        },
+
+        // 開始の合言葉を確かめて、この端末に覚えておく
+        async start(code) {
+            const c = normalize(code);
+            if (D.start !== await hashAnswer("start:" + c)) return false;
+            try { localStorage.setItem(START_KEY, c); } catch (e) { throw new Error("この端末に保存できませんでした。プライベートモードを切ってください。"); }
+            return true;
+        },
+
+        started: started,
+
+        // 書類ページを取ってきて、開始の合言葉で復号する
+        async page(group) {
+            if (!started()) throw new Error("まだ始まっていません。");
+            const res = await fetch("p/" + D.pages[group] + ".dat?v=" + (D.version || ""));
+            if (!res.ok) throw new Error("書類を読み込めませんでした。");
+            const buf = new Uint8Array(await res.arrayBuffer());
+            const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: buf.slice(0, 12) }, await pageKey(), buf.slice(12));
+            return new TextDecoder().decode(plain);
         },
 
         reset(team) {
