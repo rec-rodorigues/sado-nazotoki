@@ -109,7 +109,7 @@
             const st = await state(team);
             const p = D.puzzles.find(function(x) { return x.id === puzzleId; });
             if (!p) return { status: "unknown" };
-            const group = "act" + p.act + (p.kind === "final" ? "final" : "");
+            const group = "act" + p.act;
             if (!st.pages[group]) return { status: "locked" };
             if (st.solved.indexOf(puzzleId) >= 0) return { status: "already" };
             const typed = normalize(answer);
@@ -125,23 +125,27 @@
             return load(team).spots;
         },
 
-        async addSpot(team, code, spot) {
-            if (D.password.indexOf(await hashAnswer(normalize(spot.password))) < 0) return { status: "bad_password" };
+        // 宝箱があるエリアか（第二幕の最終謎を解いていないと、場所を解読できない）
+        async inTreasureArea(team, lat, lng) {
             const data = load(team);
-            let treasure = false;
-            let dist = null;
-            // 宝箱の場所は、第二幕の最終謎を解いていないと解読できない
-            if (data.solved["2-final"]) {
-                const tip = JSON.parse(await decrypt("tip:" + data.solved["2-final"], D.tip));
-                dist = distance(spot.lat, spot.lng, tip[0], tip[1]);
-                treasure = dist <= D.radius_m;
+            if (!data.solved["2-final"]) return false;
+            const tip = JSON.parse(await decrypt("tip:" + data.solved["2-final"], D.tip));
+            return distance(lat, lng, tip[0], tip[1]) <= D.radius_m;
+        },
+
+        async addSpot(team, code, spot) {
+            const treasure = await this.inTreasureArea(team, spot.lat, spot.lng);
+            // 宝箱のエリアでは、合言葉が正しいときだけ登録できる（カテゴリーは問わない）
+            if (treasure && D.password.indexOf(await hashAnswer(normalize(spot.password))) < 0) {
+                return { status: "bad_password" };
             }
+            const data = load(team);
             data.spots.push({
                 id: Date.now(), team_id: team, name: spot.name || "名前のない地点", category: spot.category,
                 note: spot.note, lat: spot.lat, lng: spot.lng, is_treasure: treasure, created_at: new Date().toISOString()
             });
             save(team, data);
-            return { status: treasure ? "treasure" : "added", distance_m: dist === null ? null : Math.round(dist) };
+            return { status: treasure ? "treasure" : "added" };
         },
 
         reset(team) {

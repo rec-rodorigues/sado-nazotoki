@@ -7,11 +7,8 @@
 
     const GROUPS = [
         { key: "act1", label: "第一幕" },
-        { key: "act1final", label: "第一幕 最終謎" },
         { key: "act2", label: "第二幕" },
-        { key: "act2final", label: "第二幕 最終謎" },
         { key: "act3", label: "第三幕" },
-        { key: "act3final", label: "第三幕 最終謎" },
         { key: "act4", label: "第四幕" }
     ];
 
@@ -49,7 +46,6 @@
         $("composer").hidden = id !== "chatView";
         if (id === "mapView") {
             setTimeout(function() { map.invalidateSize(); }, 50);
-            $("dotMap").classList.remove("show");
         }
         if (id === "docView") $("dotDoc").classList.remove("show");
         if (id === "chatView") scrollChat();
@@ -135,15 +131,29 @@
         $("map").classList.toggle("adding", on);
         $("mapHint").innerHTML = on
             ? "<i class=\"ti ti-hand-click\"></i> 地図をタップすると、その場所にスポットを追加できます。"
-            : "<i class=\"ti ti-info-circle\"></i> 書類を解くと、地図に点が増えていきます。";
+            : "<i class=\"ti ti-info-circle\"></i> 「地点追加」で、地図にスポットを登録できます。";
         if (!on && tempMarker) { tempMarker.remove(); tempMarker = null; }
     }
 
     $("addModeButton").addEventListener("click", function() { setAddMode(!addMode); });
 
-    map.on("click", function(e) {
+    let pendingTreasureArea = false;
+
+    map.on("click", async function(e) {
         if (!addMode) return;
         pendingLatLng = e.latlng;
+        // 宝箱があるエリアのときだけ、合言葉の欄と「宝箱のありか」を出す
+        pendingTreasureArea = await api.inTreasureArea(session.team, e.latlng.lat, e.latlng.lng);
+        $("passwordField").hidden = !pendingTreasureArea;
+        const opt = $("spotCategory").querySelector("option[data-treasure]");
+        if (pendingTreasureArea && !opt) {
+            const o = document.createElement("option");
+            o.textContent = "宝箱のありか";
+            o.dataset.treasure = "1";
+            $("spotCategory").appendChild(o);
+        } else if (!pendingTreasureArea && opt) {
+            opt.remove();
+        }
         if (tempMarker) tempMarker.remove();
         tempMarker = L.marker(e.latlng, { icon: pinIcon("#FFFCF6", "<i class=\"ti ti-plus\"></i>", "pin-temp") }).addTo(map);
         $("spotLatLng").textContent = "緯度 " + e.latlng.lat.toFixed(5) + " ／ 経度 " + e.latlng.lng.toFixed(5);
@@ -161,8 +171,8 @@
     $("spotForm").addEventListener("submit", async function(e) {
         e.preventDefault();
         if (!pendingLatLng) return;
-        const password = $("spotPassword").value.trim();
-        if (!password) {
+        const password = pendingTreasureArea ? $("spotPassword").value.trim() : "";
+        if (pendingTreasureArea && !password) {
             $("spotError").textContent = "合言葉を入れてください。";
             return;
         }
@@ -183,7 +193,7 @@
             if (res.status === "treasure") {
                 showClear();
             } else {
-                notify("スポットを登録しました。でも、ここに宝箱はないようだ…");
+                notify("スポットを登録しました。");
             }
         } catch (err) {
             $("spotError").textContent = err.message;
@@ -228,7 +238,7 @@
             seenGroups.push(key);
             store("nazo-seen-" + session.team, seenGroups);
         }
-        const src = "p/" + state.pages[key] + ".html";
+        const src = new URL("p/" + state.pages[key] + ".html?v=" + (window.NAZO_DATA.version || ""), location.href).href;
         if (!$("docFrame").src.endsWith(src)) {
             $("docFrame").style.height = "400px";
             $("docFrame").src = src;
@@ -272,7 +282,17 @@
         return null;
     }
 
-    $("docFrame").addEventListener("load", stampDocs);
+    // 書類が読み込めなかったとき（古い画面が残っているときなど）
+    $("docFrame").addEventListener("load", function() {
+        let doc = null;
+        try { doc = $("docFrame").contentDocument; } catch (e) { doc = null; }
+        if (doc && !doc.querySelector(".wrap")) {
+            $("docError").hidden = false;
+            return;
+        }
+        $("docError").hidden = true;
+        stampDocs();
+    });
 
     // ---------- 回答（チャット） ----------
     let chatLog = [];
@@ -318,7 +338,7 @@
         const keep = sel.value;
         sel.innerHTML = "";
         const open = state.puzzles.filter(function(p) {
-            const g = "act" + p.act + (p.kind === "final" ? "final" : "");
+            const g = "act" + p.act;
             return state.pages[g] && state.solved.indexOf(p.id) < 0;
         });
         open.forEach(function(p) {
@@ -349,10 +369,9 @@
             if (res.status === "correct") {
                 state = res.state;
                 let text = "正解！ " + puzzleLabel(pid) + " の答えは「" + answer + "」。";
-                if (res.new_points > 0) text += "\n地図にトキの点が " + res.new_points + " つ増えたよ。";
+                if (res.new_points > 0) text += "\n宝箱のありかに一歩近づいたよ。";
                 const newly = GROUPS.filter(function(g) { return state.pages[g.key] && !before.pages[g.key]; });
                 newly.forEach(function(g) { text += "\n新しい書類「" + g.label + "」が届いた。書類タブを見てね。"; });
-                if (pid === "3-final") text += "\n地図の「地点追加」から、宝箱の場所を登録してみよう。";
                 addMsg("bot", text, "ok");
                 applyState(true);
             } else if (res.status === "wrong") {
@@ -370,15 +389,11 @@
 
     // ---------- 状態の反映 ----------
     function applyState(fresh) {
-        const prevPoints = knownPoints.size;
         $("statSolved").textContent = state.solved.length;
         $("statSolvedTotal").textContent = state.puzzles.length;
         $("statPoints").textContent = state.points.length;
         $("statPointsTotal").textContent = state.total_points;
         drawPoints(fresh);
-        if (state.points.length > prevPoints && fresh && !$("mapView").classList.contains("active")) {
-            $("dotMap").classList.add("show");
-        }
         const hasUnseen = GROUPS.some(function(g) { return state.pages[g.key] && seenGroups.indexOf(g.key) < 0; });
         if (hasUnseen && !$("docView").classList.contains("active")) $("dotDoc").classList.add("show");
         renderDocTabs();
