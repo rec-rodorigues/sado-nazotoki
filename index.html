@@ -246,6 +246,8 @@
 
         .tabbar .dot.show { display: block; }
 
+        [hidden] { display: none !important; }
+
         .view { display: none; }
         .view.active { display: block; }
 
@@ -508,21 +510,17 @@
         <span id="teamBadge" class="team-badge" hidden></span>
     </header>
 
-    <div id="demoBanner" class="demo-banner" hidden>
-        <i class="ti ti-flask"></i> 試用モード：進み具合はこの端末の中だけに保存されます。
-    </div>
 
     <!-- ログイン -->
     <section id="loginView" class="view">
         <div class="card">
             <h2>チームを選んでください</h2>
-            <p class="small-note">受付で配られたチームの番号（4桁）を入れると、チームの書類と地図が開きます。同じチームなら何台のスマホで開いても同じ画面になります。</p>
+            <p class="small-note">謎解きは、チームで1台の端末を使って進めます。進み具合はこの端末に保存されるので、途中で別の端末に替えないでください。</p>
             <label class="field-label" for="teamSelect">チーム</label>
             <select id="teamSelect"></select>
-            <label class="field-label" for="teamCode">チームの番号</label>
-            <input id="teamCode" type="tel" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="例：1234">
             <p id="loginError" class="login-error"></p>
             <button id="loginButton" type="button" class="btn btn-primary" style="width:100%;margin-top:6px"><i class="ti ti-door-enter"></i>はじめる</button>
+            <button id="resetButton" type="button" class="btn" style="width:100%;margin-top:10px;font-size:13px;color:var(--sub)"><i class="ti ti-trash"></i>このチームの進み具合を消す（運営用）</button>
         </div>
     </section>
 
@@ -605,8 +603,7 @@
 <div id="toastArea" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="config.js"></script>
-<script src="demo-data.js"></script>
+<script src="data.js"></script>
 <script src="api.js"></script>
 <script src="app.js"></script>
 </body>

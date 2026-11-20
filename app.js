@@ -15,8 +15,6 @@
         { key: "act4", label: "第四幕" }
     ];
 
-    const POLL_MS = 8000;
-
     let session = null;     // { team, code }
     let state = null;
     let spots = [];
@@ -25,7 +23,6 @@
     let knownPoints = new Set();
     let addMode = false;
     let pendingLatLng = null;
-    let pollTimer = null;
 
     // ---------- お知らせ ----------
     function notify(text, isError) {
@@ -414,21 +411,12 @@
         $("tabbar").hidden = false;
         applyState(false);
         showView(store("nazo-view") || "docView");
-        clearInterval(pollTimer);
-        pollTimer = setInterval(function() {
-            if (document.hidden) return;
-            refresh(true).catch(function() { /* 次の回で取り直す */ });
-        }, POLL_MS);
     }
 
     $("loginButton").addEventListener("click", async function() {
         const team = Number($("teamSelect").value);
-        const code = $("teamCode").value.trim();
+        const code = "";
         $("loginError").textContent = "";
-        if (!api.isDemo && !code) {
-            $("loginError").textContent = "チームの番号を入れてください。";
-            return;
-        }
         try {
             await start(team, code);
         } catch (err) {
@@ -437,18 +425,22 @@
         }
     });
 
-    $("teamCode").addEventListener("keydown", function(e) {
-        if (e.key === "Enter") $("loginButton").click();
+    $("resetButton").addEventListener("click", function() {
+        const team = Number($("teamSelect").value);
+        if (!confirm("チーム" + team + "の、この端末の進み具合をすべて消します。よいですか？")) return;
+        api.reset(team);
+        store("nazo-chat-" + team, []);
+        store("nazo-seen-" + team, []);
+        notify("チーム" + team + "の進み具合を消しました。");
     });
 
     $("teamBadge").addEventListener("click", function() {
-        if (!confirm("チームを選び直しますか？")) return;
+        if (!confirm("チームを選び直しますか？（進み具合はこの端末に残ります）")) return;
         store("nazo-session", null);
         location.reload();
     });
 
     async function boot() {
-        $("demoBanner").hidden = !api.isDemo;
         try {
             const teams = await api.listTeams();
             $("teamSelect").innerHTML = teams.map(function(t) {

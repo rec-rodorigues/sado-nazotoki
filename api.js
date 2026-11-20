@@ -1,11 +1,12 @@
 // =========================================
-// サーバーとのやりとり
-//   本番：Supabase の関数（nazo_list_teams / nazo_state / nazo_answer / nazo_add_spot）
-//   試用：demo-data.js とこの端末の localStorage
+// 答えの判定と進み具合の保存（サーバーなし）
+//   進み具合は、この端末のブラウザ（localStorage）に保存する。
+//   答えは data.js にハッシュでしか入っていない。正解すると、打った答えから
+//   正式な答えを復元し、それを鍵にして点の座標・次の書類・宝箱の場所を解読する。
 // =========================================
 (function() {
-    const cfg = window.NAZO_CONFIG || {};
-    const isDemo = !(cfg.supabaseUrl && cfg.supabaseKey);
+    const D = window.NAZO_DATA;
+    const TEAMS = [1, 2, 3, 4].map(function(i) { return { id: i, name: "チーム" + i }; });
 
     function normalize(text) {
         let t = String(text || "").normalize("NFKC").toLowerCase();
@@ -15,77 +16,72 @@
         return t.replace(/[\s・、。,.!！?？「」『』()（）\-]/g, "");
     }
 
-    async function rpc(name, args) {
-        const res = await fetch(cfg.supabaseUrl.replace(/\/$/, "") + "/rest/v1/rpc/" + name, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                apikey: cfg.supabaseKey,
-                Authorization: "Bearer " + cfg.supabaseKey
-            },
-            body: JSON.stringify(args || {})
-        });
-        const body = await res.json().catch(function() { return null; });
-        if (!res.ok) {
-            throw new Error((body && body.message) || ("通信エラー（" + res.status + "）"));
-        }
-        return body;
-    }
-
-    async function select(table, query) {
-        const res = await fetch(cfg.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + table + "?" + query, {
-            headers: { apikey: cfg.supabaseKey, Authorization: "Bearer " + cfg.supabaseKey }
-        });
-        if (!res.ok) throw new Error("通信エラー（" + res.status + "）");
-        return res.json();
-    }
-
-    // ---------- 試用モード ----------
-    const D = window.NAZO_DEMO;
-    const demoKey = function(team) { return "nazo-demo-" + team; };
-
-    function demoLoad(team) {
-        try {
-            return JSON.parse(localStorage.getItem(demoKey(team))) || { solved: [], spots: [] };
-        } catch (e) {
-            return { solved: [], spots: [] };
-        }
-    }
-
-    function demoSave(team, data) {
-        try { localStorage.setItem(demoKey(team), JSON.stringify(data)); } catch (e) { /* 保存できなくても続ける */ }
-    }
+    const enc = new TextEncoder();
 
     async function sha(text) {
-        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("sado-nazo:" + text));
-        return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+        return new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(text)));
     }
 
-    function demoState(team) {
-        const data = demoLoad(team);
-        const solved = data.solved;
-        const has = function(id) { return solved.indexOf(id) >= 0; };
-        const allSheets = function(act) {
-            return D.puzzles.filter(function(p) { return p.act === act && p.kind === "sheet"; }).every(function(p) { return has(p.id); });
-        };
-        const groups = ["act1"];
-        if (allSheets(1)) groups.push("act1final");
-        if (has("1-final")) groups.push("act2");
-        if (has("1-final") && allSheets(2)) groups.push("act2final");
-        if (has("2-final")) groups.push("act3");
-        if (has("2-final") && allSheets(3)) groups.push("act3final");
-        if (has("3-final")) groups.push("act4");
-        const pages = {};
-        groups.forEach(function(g) { pages[g] = D.pages[g]; });
-        const idx = new Set();
-        D.puzzles.forEach(function(p) { if (has(p.id)) p.points.forEach(function(i) { idx.add(i); }); });
+    function toHex(bytes) {
+        return Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, "0"); }).join("");
+    }
+
+    async function hashAnswer(text) {
+        return toHex(await sha("sado-nazo:" + text));
+    }
+
+    async function decrypt(seed, hex) {
+        const data = new Uint8Array(hex.match(/../g).map(function(x) { return parseInt(x, 16); }));
+        const out = new Uint8Array(data.length);
+        let block = null;
+        for (let i = 0; i < data.length; i++) {
+            if (i % 32 === 0) block = await sha(seed + ":" + (i / 32));
+            out[i] = data[i] ^ block[i % 32];
+        }
+        return new TextDecoder().decode(out);
+    }
+
+    const key = function(team) { return "nazo-progress-" + team; };
+
+    function load(team) {
+        try {
+            const v = JSON.parse(localStorage.getItem(key(team)));
+            if (v && v.solved && !Array.isArray(v.solved)) return v;
+        } catch (e) { /* 読めなければ最初から */ }
+        return { solved: {}, spots: [] };
+    }
+
+    function save(team, data) {
+        try {
+            localStorage.setItem(key(team), JSON.stringify(data));
+        } catch (e) {
+            throw new Error("この端末に保存できませんでした。プライベートモードを切ってください。");
+        }
+    }
+
+    async function state(team) {
+        const data = load(team);
+        const solved = data.solved;            // { 書類番号: 正式な答え }
+        const ids = Object.keys(solved);
+        const pages = { act1: D.pages.act1 };
+        for (const group of Object.keys(D.requires)) {
+            const req = D.requires[group];
+            if (req.every(function(p) { return solved[p]; })) {
+                pages[group] = await decrypt("page:" + req.map(function(p) { return solved[p]; }).join("|"), D.pages[group]);
+            }
+        }
+        let points = [];
+        for (const p of D.puzzles) {
+            if (solved[p.id]) points = points.concat(JSON.parse(await decrypt("p:" + solved[p.id], p.points)));
+        }
+        points.sort(function(a, b) { return a[0] - b[0]; });
         const treasure = data.spots.find(function(s) { return s.is_treasure; });
         return {
-            team: { id: team, name: "チーム" + team },
-            solved: solved.slice(),
+            team: TEAMS.find(function(t) { return t.id === team; }) || { id: team, name: "チーム" + team },
+            solved: ids,
             puzzles: D.puzzles.map(function(p) { return { id: p.id, act: p.act, kind: p.kind }; }),
-            points: Array.from(idx).sort(function(a, b) { return a - b; }).map(function(i) { return [i, D.points[i][0], D.points[i][1]]; }),
-            total_points: D.points.length,
+            points: points,
+            total_points: D.total_points,
             pages: pages,
             cleared: treasure ? treasure.created_at : null
         };
@@ -98,66 +94,58 @@
         return 6371000 * 2 * Math.asin(Math.sqrt(a));
     }
 
-    const api = {
-        isDemo: isDemo,
+    window.NazoApi = {
         normalize: normalize,
 
         async listTeams() {
-            if (isDemo) return [1, 2, 3, 4].map(function(i) { return { id: i, name: "チーム" + i }; });
-            return rpc("nazo_list_teams");
+            return TEAMS;
         },
 
-        async state(team, code) {
-            if (isDemo) return demoState(team);
-            return rpc("nazo_state", { p_team: team, p_code: code });
+        async state(team) {
+            return state(team);
         },
 
         async answer(team, code, puzzleId, answer) {
-            if (!isDemo) return rpc("nazo_answer", { p_team: team, p_code: code, p_puzzle: puzzleId, p_answer: answer });
-            const st = demoState(team);
+            const st = await state(team);
             const p = D.puzzles.find(function(x) { return x.id === puzzleId; });
             if (!p) return { status: "unknown" };
             const group = "act" + p.act + (p.kind === "final" ? "final" : "");
             if (!st.pages[group]) return { status: "locked" };
             if (st.solved.indexOf(puzzleId) >= 0) return { status: "already" };
-            const h = await sha(normalize(answer));
-            if (p.hashes.indexOf(h) < 0) return { status: "wrong" };
-            const data = demoLoad(team);
-            data.solved.push(puzzleId);
-            demoSave(team, data);
-            return { status: "correct", new_points: p.points.length, state: demoState(team) };
+            const typed = normalize(answer);
+            const i = p.hashes.indexOf(await hashAnswer(typed));
+            if (i < 0) return { status: "wrong" };
+            const data = load(team);
+            data.solved[puzzleId] = await decrypt("c:" + typed, p.canon[i]);
+            save(team, data);
+            return { status: "correct", new_points: JSON.parse(await decrypt("p:" + data.solved[puzzleId], p.points)).length, state: await state(team) };
         },
 
         async spots(team) {
-            if (isDemo) return demoLoad(team).spots;
-            return select("nazo_spots", "select=*&team_id=eq." + encodeURIComponent(team) + "&order=id");
+            return load(team).spots;
         },
 
         async addSpot(team, code, spot) {
-            if (!isDemo) {
-                return rpc("nazo_add_spot", {
-                    p_team: team, p_code: code, p_name: spot.name, p_category: spot.category,
-                    p_note: spot.note, p_lat: spot.lat, p_lng: spot.lng, p_password: spot.password
-                });
+            if (D.password.indexOf(await hashAnswer(normalize(spot.password))) < 0) return { status: "bad_password" };
+            const data = load(team);
+            let treasure = false;
+            let dist = null;
+            // 宝箱の場所は、第二幕の最終謎を解いていないと解読できない
+            if (data.solved["2-final"]) {
+                const tip = JSON.parse(await decrypt("tip:" + data.solved["2-final"], D.tip));
+                dist = distance(spot.lat, spot.lng, tip[0], tip[1]);
+                treasure = dist <= D.radius_m;
             }
-            const h = await sha(normalize(spot.password));
-            if (D.password.indexOf(h) < 0) return { status: "bad_password" };
-            const dist = distance(spot.lat, spot.lng, D.tip[0], D.tip[1]);
-            const treasure = dist <= 1500;
-            const data = demoLoad(team);
             data.spots.push({
                 id: Date.now(), team_id: team, name: spot.name || "名前のない地点", category: spot.category,
                 note: spot.note, lat: spot.lat, lng: spot.lng, is_treasure: treasure, created_at: new Date().toISOString()
             });
-            demoSave(team, data);
-            return { status: treasure ? "treasure" : "added", distance_m: Math.round(dist) };
+            save(team, data);
+            return { status: treasure ? "treasure" : "added", distance_m: dist === null ? null : Math.round(dist) };
         },
 
-        async allSolves() {
-            if (isDemo) return [];
-            return select("nazo_solves", "select=team_id,puzzle_id,solved_at&order=solved_at");
+        reset(team) {
+            try { localStorage.removeItem(key(team)); } catch (e) { /* なにもしない */ }
         }
     };
-
-    window.NazoApi = api;
 })();
