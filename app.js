@@ -14,12 +14,9 @@
 
     let session = null;     // { team, code }
     let state = null;
-    let spots = [];
     let currentGroup = null;
     let seenGroups = [];
     let knownPoints = new Set();
-    let addMode = false;
-    let pendingLatLng = null;
 
     // ---------- お知らせ ----------
     function notify(text, isError) {
@@ -47,7 +44,6 @@
         if (id === "mapView") {
             setTimeout(function() { map.invalidateSize(); }, 50);
         }
-        if (id === "docView") $("dotDoc").classList.remove("show");
         if (id === "chatView") scrollChat();
         if (session) store("nazo-view", id);
     }
@@ -117,116 +113,210 @@
         knownPoints = new Set(pts.map(function(p) { return p[0]; }));
     }
 
+    // 掘った跡と、見つけた宝箱の印
     function drawSpots() {
         spotLayer.clearLayers();
-        spots.forEach(function(s) {
-            const st = categoryStyles[s.category] || { color: "#6F665B", mark: "" };
-            const icon = s.is_treasure
-                ? pinIcon("#A5822F", "<i class=\"ti ti-treasure-chest\"></i>", "pin-treasure")
-                : pinIcon(st.color, st.mark ? "<span class=\"pin-mark\">" + st.mark + "</span>" : "<i class=\"ti ti-map-pin\"></i>");
-            L.marker([s.lat, s.lng], { icon: icon })
-                .bindPopup("<b>" + escapeHtml(s.name) + "</b><br><span class=\"small-note\">" + escapeHtml(s.category || "") +
-                    (s.is_treasure ? "・宝箱" : "") + "</span>" + (s.note ? "<br>" + escapeHtml(s.note) : ""))
+        (state.dug || []).forEach(function(d) {
+            L.marker([d[0], d[1]], { icon: pinIcon("#8C8273", "<i class=\"ti ti-x\"></i>", "pin-dug"), interactive: false, keyboard: false })
                 .addTo(spotLayer);
         });
+        if (state.found) {
+            L.marker(state.found, { icon: pinIcon("#A5822F", "<i class=\"ti ti-treasure-chest\"></i>", "pin-treasure") })
+                .on("click", function() { showChest(); })
+                .addTo(spotLayer);
+        }
     }
 
-    function setAddMode(on) {
-        addMode = on;
-        $("addModeButton").classList.toggle("on", on);
-        $("addModeButton").innerHTML = on ? "<i class=\"ti ti-x\"></i>追加をやめる" : "<i class=\"ti ti-map-pin-plus\"></i>地点追加";
+    // ---------- 宝箱を探す ----------
+    let searchMode = false;
+    const SHOVEL = $("searchButton").querySelector(".shovel").outerHTML;
+
+    function renderDurability(el) {
+        const left = state.shovels - state.used;
+        let html = "<span>耐久力</span>";
+        for (let i = 0; i < state.shovels; i++) html += "<span class=\"pip" + (i < left ? "" : " used") + "\"></span>";
+        el.innerHTML = html;
+    }
+
+    function setSearchMode(on) {
+        searchMode = on;
+        $("searchButton").classList.toggle("on", on);
         $("map").classList.toggle("adding", on);
-        $("mapHint").innerHTML = on
-            ? "<i class=\"ti ti-hand-click\"></i> 地図をタップすると、その場所にスポットを追加できます。"
-            : "";
+        renderSearchBar();
         if (!on && tempMarker) { tempMarker.remove(); tempMarker = null; }
     }
 
-    $("addModeButton").addEventListener("click", function() { setAddMode(!addMode); });
-
-    let pendingTreasureArea = false;
-
-    map.on("click", async function(e) {
-        if (!addMode) return;
-        pendingLatLng = e.latlng;
-        // 宝箱があるエリアのときだけ、合言葉の欄と「宝箱のありか」を出す
-        pendingTreasureArea = await api.inTreasureArea(session.team, e.latlng.lat, e.latlng.lng);
-        // 宝箱のありかで初めて合言葉を聞かれたら、第四幕の書類が届く
-        if (pendingTreasureArea && api.markAsked(session.team)) {
-            await refresh(false);
-            addMsg("bot", "合言葉…？\n書類の束に、見覚えのない一枚がまぎれていた。書類タブを見てみよう。", "ok");
-            notify("新しい書類「第四幕」が届いた。");
+    function renderSearchBar() {
+        const btn = $("searchButton");
+        const broken = state.used >= state.shovels && !state.found;
+        renderDurability($("durability"));
+        $("durability").hidden = !!state.found;
+        btn.classList.toggle("broken", broken);
+        if (state.found) {
+            $("searchLabel").textContent = "宝箱を開ける";
+            $("mapHint").textContent = "";
+        } else if (broken) {
+            $("searchLabel").textContent = "スコップが折れた";
+            $("mapHint").textContent = "運営を呼んでください。";
+        } else if (searchMode) {
+            $("searchLabel").textContent = "探すのをやめる";
+            $("mapHint").textContent = "宝箱がありそうな場所をタップしよう。";
+        } else {
+            $("searchLabel").textContent = "宝箱を探す";
+            $("mapHint").textContent = "";
         }
-        $("passwordField").hidden = !pendingTreasureArea;
-        const opt = $("spotCategory").querySelector("option[data-treasure]");
-        if (pendingTreasureArea && !opt) {
-            const o = document.createElement("option");
-            o.textContent = "宝箱のありか";
-            o.dataset.treasure = "1";
-            $("spotCategory").appendChild(o);
-        } else if (!pendingTreasureArea && opt) {
-            opt.remove();
-        }
-        if (tempMarker) tempMarker.remove();
-        tempMarker = L.marker(e.latlng, { icon: pinIcon("#FFFCF6", "<i class=\"ti ti-plus\"></i>", "pin-temp") }).addTo(map);
-        $("spotLatLng").textContent = "緯度 " + e.latlng.lat.toFixed(5) + " ／ 経度 " + e.latlng.lng.toFixed(5);
-        $("spotError").textContent = "";
-        $("spotSheet").classList.add("open");
-        setTimeout(function() { $("spotName").focus(); }, 50);
-    });
-
-    function closeSpotSheet() {
-        $("spotSheet").classList.remove("open");
     }
 
-    $("spotCancel").addEventListener("click", closeSpotSheet);
+    $("searchButton").addEventListener("click", function() {
+        if (state.found) { showChest(); return; }
+        if (state.used >= state.shovels) { showDigResult("broken"); return; }
+        setSearchMode(!searchMode);
+    });
 
-    $("spotForm").addEventListener("submit", async function(e) {
-        e.preventDefault();
-        if (!pendingLatLng) return;
-        const password = pendingTreasureArea ? $("spotPassword").value.trim() : "";
-        if (pendingTreasureArea && !password) {
-            $("spotError").textContent = "合言葉を入れてください。";
-            return;
+    let pendingLatLng = null;
+
+    map.on("click", function(e) {
+        if (!searchMode) return;
+        pendingLatLng = e.latlng;
+        if (tempMarker) tempMarker.remove();
+        tempMarker = L.marker(e.latlng, { icon: pinIcon("#FFFCF6", "<i class=\"ti ti-search\"></i>", "pin-temp") }).addTo(map);
+        $("digLatLng").textContent = "緯度 " + e.latlng.lat.toFixed(4) + " ／ 経度 " + e.latlng.lng.toFixed(4);
+        $("digLeft").textContent = "スコップの耐久力：のこり " + (state.shovels - state.used) + " 回";
+        $("digAsk").hidden = false;
+        $("digResult").hidden = true;
+        $("digSheet").classList.add("open");
+    });
+
+    function closeDigSheet() {
+        $("digSheet").classList.remove("open");
+        if (tempMarker) { tempMarker.remove(); tempMarker = null; }
+    }
+
+    $("digCancel").addEventListener("click", closeDigSheet);
+    $("digClose").addEventListener("click", closeDigSheet);
+
+    function showDigResult(kind, left) {
+        $("digAsk").hidden = true;
+        $("digResult").hidden = false;
+        $("staffBox").hidden = kind !== "broken";
+        $("staffError").textContent = "";
+        $("staffPassword").value = "";
+        const msg = $("digMsg");
+        msg.className = "dig-msg";
+        if (kind === "nothing") {
+            msg.textContent = "何も見つからなかった…\nスコップの耐久力が下がった…\n（のこり " + left + " 回）";
+        } else if (kind === "broken") {
+            msg.textContent = "何も見つからなかった…\nスコップが折れてしまった…\n運営を呼んでください。";
         }
-        $("spotSubmit").disabled = true;
+        renderDurability($("digDurability"));
+        $("digSheet").classList.add("open");
+        // 掘る動きをやり直す
+        const anim = $("digAnim");
+        anim.innerHTML = SHOVEL;
+    }
+
+    $("digGo").addEventListener("click", async function() {
+        if (!pendingLatLng) return;
+        $("digGo").disabled = true;
         try {
-            const res = await api.addSpot(session.team, session.code, {
-                name: $("spotName").value.trim(), category: $("spotCategory").value, note: $("spotNote").value.trim(),
-                lat: pendingLatLng.lat, lng: pendingLatLng.lng, password: password
-            });
-            if (res.status === "bad_password") {
-                $("spotError").textContent = "合言葉がちがうため、登録できませんでした。";
+            const res = await api.search(session.team, pendingLatLng.lat, pendingLatLng.lng);
+            await refresh(false);
+            if (res.status === "found") {
+                closeDigSheet();
+                setSearchMode(false);
+                addMsg("bot", "スコップの先に、何か硬いものが当たった…！\n宝箱だ！", "ok");
+                showChest();
                 return;
             }
-            closeSpotSheet();
-            setAddMode(false);
-            $("spotForm").reset();
-            await refresh(false);
-            if (res.status === "treasure") {
-                showFinale();
-            } else {
-                notify("スポットを登録しました。");
-            }
+            showDigResult(res.status, res.left);
+            if (res.status === "broken") setSearchMode(false);
         } catch (err) {
-            $("spotError").textContent = err.message;
+            notify(err.message, true);
         } finally {
-            $("spotSubmit").disabled = false;
+            $("digGo").disabled = false;
         }
     });
 
-    // ---------- 宝箱を開けたときの演出 ----------
-    function showFinale() {
+    $("staffGo").addEventListener("click", async function() {
+        if (await api.refill(session.team, $("staffPassword").value)) {
+            await refresh(false);
+            closeDigSheet();
+            notify("スコップを直しました。耐久力が元に戻りました。");
+        } else {
+            $("staffError").textContent = "パスワードがちがいます。";
+        }
+    });
+
+    // ---------- 宝箱：見つけた → 開かない → 合言葉で開く ----------
+    function showChest() {
         const f = $("finale");
-        f.classList.remove("opened");
+        f.classList.remove("opened", "locked", "rattle");
         $("coins").innerHTML = "";
-        const t = state && state.cleared ? new Date(state.cleared) : new Date();
-        $("finaleTeam").textContent = (state ? state.team.name : "") + " ・ " +
-            t.getHours() + "時" + String(t.getMinutes()).padStart(2, "0") + "分に発見";
+        $("lockError").textContent = "";
+        if (state.cleared) {
+            showFinale();
+            return;
+        }
         f.classList.add("open");
     }
 
-    function openChest() {
+    function showFinale() {
+        const f = $("finale");
+        f.classList.remove("locked", "rattle");
+        const t = state && state.cleared ? new Date(state.cleared) : new Date();
+        $("finaleTeam").textContent = (state ? state.team.name : "") + " ・ " +
+            t.getHours() + "時" + String(t.getMinutes()).padStart(2, "0") + "分に開けた";
+        f.classList.add("open");
+        burst();
+    }
+
+    function tapChest() {
+        const f = $("finale");
+        if (f.classList.contains("opened")) return;
+        // 合言葉なしでは開かない
+        f.classList.remove("rattle");
+        void f.offsetWidth;
+        f.classList.add("locked", "rattle");
+        if (navigator.vibrate) { try { navigator.vibrate([30, 30, 30]); } catch (e) { /* なにもしない */ } }
+        setTimeout(function() { f.classList.remove("rattle"); }, 520);
+        if (!lockedOnce) {
+            lockedOnce = true;
+            addMsg("bot", "宝箱には錠がかかっていて、開かない…\n合言葉が必要みたい。書類の中に手がかりがあるかも。", "ng");
+        }
+    }
+
+    let lockedOnce = false;
+
+    $("lockForm").addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const pw = $("lockInput").value.trim();
+        if (!pw) return;
+        const res = await api.open(session.team, pw);
+        if (res.status === "opened") {
+            $("lockInput").value = "";
+            await refresh(false);
+            addMsg("bot", "合言葉を唱えると、錠がはずれた！", "ok");
+            showFinale();
+        } else {
+            $("lockError").textContent = "……何も起こらない。合言葉がちがうようだ。";
+            const f = $("finale");
+            f.classList.remove("rattle"); void f.offsetWidth; f.classList.add("rattle");
+            setTimeout(function() { f.classList.remove("rattle"); }, 520);
+        }
+    });
+
+    $("lockDocs").addEventListener("click", function() {
+        $("finale").classList.remove("open");
+        showView("docView");
+        if (state.pages.act4) openGroup("act4");
+    });
+
+    $("lockClose").addEventListener("click", function() {
+        $("finale").classList.remove("open");
+        showView("mapView");
+    });
+
+    function burst() {
         const f = $("finale");
         if (f.classList.contains("opened")) return;
         f.classList.add("opened");
@@ -247,16 +337,15 @@
         }
     }
 
-    $("chest").addEventListener("click", openChest);
+    $("chest").addEventListener("click", tapChest);
     $("chest").addEventListener("keydown", function(e) {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openChest(); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tapChest(); }
     });
 
     $("finaleClose").addEventListener("click", function() {
         $("finale").classList.remove("open");
         showView("mapView");
-        const t = spots.find(function(s) { return s.is_treasure; });
-        if (t) map.setView([t.lat, t.lng], 13);
+        if (state.found) map.setView(state.found, 13);
     });
 
     // ---------- 書類 ----------
@@ -269,12 +358,12 @@
             b.type = "button";
             b.className = "chip" + (g.key === currentGroup ? " active" : "");
             b.setAttribute("role", "tab");
-            b.innerHTML = escapeHtml(g.label) + (seenGroups.indexOf(g.key) < 0 ? "<span class=\"new\"></span>" : "");
+            b.textContent = g.label;
             b.addEventListener("click", function() { openGroup(g.key); });
             tabs.appendChild(b);
         });
         if (!currentGroup || !state.pages[currentGroup]) {
-            openGroup(open[open.length - 1].key);
+            openGroup(open[0].key);
         }
     }
 
@@ -385,7 +474,7 @@
         sel.innerHTML = "";
         const open = state.puzzles.filter(function(p) {
             const g = "act" + p.act;
-            return state.pages[g] && state.solved.indexOf(p.id) < 0;
+            return state.solved.indexOf(p.id) < 0;
         });
         open.forEach(function(p) {
             const o = document.createElement("option");
@@ -416,9 +505,9 @@
                 state = res.state;
                 let text = "正解！ " + puzzleLabel(pid) + " の答えは「" + answer + "」。";
                 if (res.new_points > 0) text += "\n宝箱のありかに一歩近づいたよ。";
-                const newly = GROUPS.filter(function(g) { return state.pages[g.key] && !before.pages[g.key]; });
-                newly.forEach(function(g) { text += "\n新しい書類「" + g.label + "」が届いた。書類タブを見てね。"; });
-                if (pid === "3-final") text += "\n…どこかで、何かが書き加えられる音がした。";
+                if (state.searchUnlocked && !before.searchUnlocked) {
+                    text += "\n…足もとに、一本のスコップが転がっていた。\n地図を開いて、宝箱を探してみよう。";
+                }
                 addMsg("bot", text, "ok");
                 applyState(true);
             } else if (res.status === "wrong") {
@@ -427,7 +516,7 @@
                 addMsg("bot", "それはもう正解しているよ。", "ng");
                 await refresh(false);
             } else {
-                addMsg("bot", "その書類はまだ届いていないよ。", "ng");
+                addMsg("bot", "その書類は見つからないよ。", "ng");
             }
         } catch (err) {
             addMsg("bot", "送れなかった…（" + err.message + "）", "ng", "", false);
@@ -438,14 +527,14 @@
     function applyState(fresh) {
         $("progressNote").textContent = "解いた書類 " + state.solved.length + " / " + state.puzzles.length;
         drawPoints(fresh);
-        // 第三幕の最終謎を解くと、地図に「地点追加」が現れる
+        // 第三幕をすべて解くと、地図に「宝箱を探す」が現れる
         const wasHidden = $("mapBar").hidden;
-        $("mapBar").hidden = !state.spotUnlocked;
-        if (wasHidden && state.spotUnlocked && fresh) {
-            $("addModeButton").classList.add("appear");
+        $("mapBar").hidden = !state.searchUnlocked;
+        if (wasHidden && state.searchUnlocked && fresh) {
+            $("searchButton").classList.add("appear");
         }
-        const hasUnseen = GROUPS.some(function(g) { return state.pages[g.key] && seenGroups.indexOf(g.key) < 0; });
-        if (hasUnseen && !$("docView").classList.contains("active")) $("dotDoc").classList.add("show");
+        renderSearchBar();
+        drawSpots();
         renderDocTabs();
         renderPuzzleSelect();
         stampDocs();
@@ -453,8 +542,6 @@
 
     async function refresh(fresh) {
         state = await api.state(session.team, session.code);
-        spots = await api.spots(session.team);
-        drawSpots();
         applyState(fresh);
     }
 
@@ -467,7 +554,7 @@
         chatLog = store("nazo-chat-" + team) || [];
         $("chat").innerHTML = "";
         if (chatLog.length === 0) {
-            addMsg("bot", "ようこそ、" + state.team.name + "。\n書類の答えがわかったら、ここで書類の番号を選んで答えを書いてね。");
+            addMsg("bot", "ようこそ、" + state.team.name + "。\n書類の答えがわかったら、ここで書類の番号を選んで答えを書いてね。\n書類は第一幕から第四幕まで、全部そろっているよ。");
         } else {
             chatLog.forEach(function(m) { addMsg(m[0], m[1], m[2], m[3], false); });
         }

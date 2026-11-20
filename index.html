@@ -564,6 +564,30 @@
             box-shadow: 0 0 0 1px #8E2E20;
         }
 
+        /* スコップ */
+        .shovel { width: 20px; height: 20px; flex: none; vertical-align: -4px; }
+        .map-btn .shovel { width: 22px; height: 22px; }
+        .map-btn.broken { background: #6F665B; border-color: #6F665B; }
+        .durability { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--sub); margin-bottom: 2px; }
+        .durability .pip { width: 16px; height: 8px; border-radius: 2px; background: var(--kin); border: 1px solid var(--kin-dark); }
+        .durability .pip.used { background: transparent; border-style: dashed; border-color: #B9AD97; }
+        .durability.big { justify-content: center; margin: 4px 0 6px; font-size: 13px; }
+        .durability.big .pip { width: 26px; height: 12px; }
+        #mapHint { font-size: 13px; color: #6F665B; }
+        .pin.pin-dug { background: #8C8273; width: 22px; height: 22px; border-width: 1.5px; }
+        .pin.pin-dug .ti { font-size: 12px; }
+        .dig-panel h2 { display: flex; align-items: center; gap: 6px; }
+        .dig-panel h2 .shovel { width: 24px; height: 24px; }
+        .dig-left { margin: 8px 0 0; font-size: 14px; }
+        .dig-panel .submit { display: inline-flex; align-items: center; gap: 6px; }
+        .dig-anim { text-align: center; height: 70px; }
+        .dig-anim .shovel { width: 64px; height: 64px; transform-origin: 50% 90%; animation: dig 0.5s ease-in-out 3; }
+        @keyframes dig { 0%, 100% { transform: rotate(-20deg) translateY(0); } 50% { transform: rotate(15deg) translateY(10px); } }
+        .dig-msg { text-align: center; white-space: pre-line; font-family: var(--serif); font-size: 17px; line-height: 1.9; margin: 6px 0; }
+        .dig-msg.found { color: var(--kin-dark); font-weight: 800; }
+        .staff-row { display: flex; gap: 8px; }
+        .staff-row input { flex: 1; }
+
         /* 地点追加フォーム */
         .sheet-overlay {
             position: fixed;
@@ -682,6 +706,37 @@
 
         @keyframes blink { 50% { opacity: 0.35; } }
 
+        /* 段階：見つけた → 開かない（合言葉） → 開いた */
+        .found-text, .locked-text { position: relative; z-index: 2; max-width: 420px; }
+        .found-text h2 {
+            font-family: var(--serif); font-weight: 800; font-size: clamp(26px, 7.5vw, 36px);
+            letter-spacing: 0.18em; margin: 16px 0 0; color: var(--kin-light);
+            text-shadow: 0 0 18px rgba(233, 207, 138, 0.5);
+        }
+        .finale.locked .found-text, .finale.opened .found-text { display: none; }
+        .locked-text { display: none; }
+        .finale.locked .locked-text { display: block; animation: rise 0.6s 0.5s both; }
+        .locked-msg { font-family: var(--serif); line-height: 1.9; margin: 14px 0 10px; }
+        .locked-msg b { color: var(--kin-light); }
+        .lock-form { display: flex; gap: 8px; }
+        .lock-form input { flex: 1; min-width: 0; }
+        .lock-error { color: #F3A79D; min-height: 1.2em; margin: 6px 0; }
+        .lock-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .btn.ghost { background: transparent; color: var(--paper-2); border: 1px solid rgba(251, 246, 234, 0.4); }
+        .padlock { transform-box: fill-box; transform-origin: 50% 0; transition: transform 0.8s ease-in, opacity 0.8s; }
+        .finale.opened .padlock { transform: translateY(60px) rotate(25deg); opacity: 0; }
+        .finale.rattle .chest { animation: rattle 0.5s ease-in-out !important; }
+        .finale.rattle .padlock { animation: lockjolt 0.5s ease-in-out; }
+        @keyframes rattle {
+            0%, 100% { transform: translateX(0); }
+            15% { transform: translateX(-10px) rotate(-3deg); } 30% { transform: translateX(9px) rotate(3deg); }
+            45% { transform: translateX(-7px) rotate(-2deg); } 60% { transform: translateX(5px) rotate(1deg); } 80% { transform: translateX(-2px); }
+        }
+        @keyframes lockjolt { 30% { transform: translateY(5px); } 60% { transform: translateY(-2px); } }
+        .finale.locked:not(.rattle) .chest { animation: none; }
+        .finale { overflow-y: auto; justify-content: safe center; }
+        .finale .chest { transition: width 0.4s; flex: none; }
+        .finale.locked .chest { width: min(190px, 48vw); }
         .finale.opened .tap-hint { display: none; }
 
         .finale-text {
@@ -839,8 +894,11 @@
                 </div>
             </div>
             <div id="mapBar" class="map-bar" hidden>
-                <span class="grow" id="mapHint"></span>
-                <button id="addModeButton" type="button" class="map-btn"><i class="ti ti-map-pin-plus"></i>地点追加</button>
+                <div class="grow">
+                    <div class="durability" id="durability" aria-label="スコップの耐久力"></div>
+                    <span id="mapHint"></span>
+                </div>
+                <button id="searchButton" type="button" class="map-btn"><svg class="shovel" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 2.5h5.6v2.2h-1.7v8.1h-2.2V4.7H9.2z" fill="#E9CF8A"/><path d="M7 12.4h10v3.4c0 3.2-2.2 5.7-5 5.7s-5-2.5-5-5.7z" fill="#D7DDE2" stroke="#2B2622" stroke-width=".8"/><path d="M12 13.4v6.8" stroke="#9AA5AE" stroke-width="1"/></svg><span id="searchLabel">宝箱を探す</span></button>
             </div>
             <div id="map"></div>
         </div>
@@ -856,38 +914,40 @@
 </div>
 
 <nav id="tabbar" class="tabbar" hidden>
-    <button type="button" data-view="docView"><i class="ti ti-files"></i>書類<span class="dot" id="dotDoc"></span></button>
+    <button type="button" data-view="docView"><i class="ti ti-files"></i>書類</button>
     <button type="button" data-view="chatView"><i class="ti ti-feather"></i>回答</button>
     <button type="button" data-view="mapView" class="quiet"><i class="ti ti-map"></i>地図</button>
 </nav>
 
-<!-- 地点追加フォーム -->
-<div id="spotSheet" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="spotTitle">
-    <form id="spotForm" class="sheet-panel">
-        <h2 id="spotTitle"><i class="ti ti-map-pin-plus"></i> スポットを追加</h2>
-        <p class="small-note" id="spotLatLng"></p>
-        <label class="field-label" for="spotName">地点名</label>
-        <input id="spotName" type="text" maxlength="60" placeholder="例：〇〇の浜">
-        <label class="field-label" for="spotCategory">カテゴリー</label>
-        <select id="spotCategory">
-            <option>観光地</option>
-            <option>活動場所</option>
-            <option>宿泊地</option>
-            <option>飲食店</option>
-            <option>生活用品店</option>
-        </select>
-        <label class="field-label" for="spotNote">メモ（任意）</label>
-        <input id="spotNote" type="text" maxlength="200">
-        <div id="passwordField" class="password-box" hidden>
-            <label class="field-label" for="spotPassword"><i class="ti ti-key"></i> この場所に登録するには、合言葉が必要です</label>
-            <input id="spotPassword" type="text" autocomplete="off" placeholder="合言葉">
+<!-- 宝箱を探す -->
+<div id="digSheet" class="sheet-overlay" role="dialog" aria-modal="true" aria-labelledby="digTitle">
+    <div class="sheet-panel dig-panel">
+        <div id="digAsk">
+            <h2 id="digTitle"><svg class="shovel" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 2.5h5.6v2.2h-1.7v8.1h-2.2V4.7H9.2z" fill="#E9CF8A"/><path d="M7 12.4h10v3.4c0 3.2-2.2 5.7-5 5.7s-5-2.5-5-5.7z" fill="#D7DDE2" stroke="#2B2622" stroke-width=".8"/><path d="M12 13.4v6.8" stroke="#9AA5AE" stroke-width="1"/></svg> この付近を探す？</h2>
+            <p class="small-note" id="digLatLng"></p>
+            <p class="dig-left" id="digLeft"></p>
+            <div class="sheet-actions">
+                <button type="button" class="btn" id="digCancel">やめる</button>
+                <button type="button" class="btn submit" id="digGo"><svg class="shovel" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 2.5h5.6v2.2h-1.7v8.1h-2.2V4.7H9.2z" fill="#E9CF8A"/><path d="M7 12.4h10v3.4c0 3.2-2.2 5.7-5 5.7s-5-2.5-5-5.7z" fill="#D7DDE2" stroke="#2B2622" stroke-width=".8"/><path d="M12 13.4v6.8" stroke="#9AA5AE" stroke-width="1"/></svg>この付近を探す</button>
+            </div>
         </div>
-        <p id="spotError" class="error-text"></p>
-        <div class="sheet-actions">
-            <button type="button" class="btn" id="spotCancel">やめる</button>
-            <button type="submit" class="btn submit" id="spotSubmit"><i class="ti ti-device-floppy"></i>登録</button>
+        <div id="digResult" hidden>
+            <div class="dig-anim" id="digAnim" aria-hidden="true"><svg class="shovel" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.2 2.5h5.6v2.2h-1.7v8.1h-2.2V4.7H9.2z" fill="#E9CF8A"/><path d="M7 12.4h10v3.4c0 3.2-2.2 5.7-5 5.7s-5-2.5-5-5.7z" fill="#D7DDE2" stroke="#2B2622" stroke-width=".8"/><path d="M12 13.4v6.8" stroke="#9AA5AE" stroke-width="1"/></svg></div>
+            <p class="dig-msg" id="digMsg"></p>
+            <div class="durability big" id="digDurability"></div>
+            <div id="staffBox" class="password-box" hidden>
+                <label class="field-label" for="staffPassword"><i class="ti ti-tool"></i> 運営用：スコップを直す</label>
+                <div class="staff-row">
+                    <input id="staffPassword" type="password" autocomplete="off" placeholder="運営のパスワード">
+                    <button type="button" class="btn submit" id="staffGo">直す</button>
+                </div>
+                <p id="staffError" class="error-text"></p>
+            </div>
+            <div class="sheet-actions">
+                <button type="button" class="btn" id="digClose">閉じる</button>
+            </div>
         </div>
-    </form>
+    </div>
 </div>
 
 <!-- 宝箱を開けたとき -->
@@ -929,6 +989,16 @@
             <rect x="106" y="116" width="28" height="34" rx="4" fill="url(#gold)"/>
             <circle cx="120" cy="130" r="5" fill="#3A2408"/>
             <rect x="118" y="132" width="4" height="10" fill="#3A2408"/>
+            <!-- 錠 -->
+            <g class="padlock">
+                <path d="M106 150 V136 a14 14 0 0 1 28 0 V150" fill="none" stroke="#9AA5AE" stroke-width="6"/>
+                <rect x="98" y="148" width="44" height="40" rx="6" fill="#5E6A73" stroke="#2B2622" stroke-width="1.5"/>
+                <g fill="#E9CF8A" font-family="serif" font-size="8" text-anchor="middle">
+                    <rect x="102" y="158" width="36" height="12" rx="2" fill="#2B2622"/>
+                    <text x="107" y="167">・</text><text x="112" y="167">・</text><text x="117" y="167">・</text><text x="122" y="167">・</text><text x="127" y="167">・</text><text x="132" y="167">・</text><text x="137" y="167">・</text>
+                </g>
+                <circle cx="120" cy="179" r="3" fill="#2B2622"/>
+            </g>
             <!-- ふた -->
             <g class="lid">
                 <path d="M24 100 V64 Q24 30 120 30 Q216 30 216 64 V100 Z" fill="url(#wood)"/>
@@ -939,7 +1009,22 @@
             </g>
         </svg>
     </div>
-    <p class="tap-hint">宝箱をタップして開ける</p>
+    <div class="found-text">
+        <h2>宝箱を見つけた！</h2>
+        <p class="tap-hint" id="tapHint">宝箱をタップして開ける</p>
+    </div>
+    <div class="locked-text" aria-live="polite">
+        <p class="locked-msg">ガチャッ……開かない。<br>宝箱には、七つの文字盤がついた錠がかかっている。<br><b>合言葉</b>が必要だ。</p>
+        <form id="lockForm" class="lock-form">
+            <input id="lockInput" type="text" autocomplete="off" placeholder="合言葉（ひらがな7文字）" aria-label="合言葉">
+            <button type="submit" class="btn btn-gold"><i class="ti ti-key"></i>唱える</button>
+        </form>
+        <p id="lockError" class="error-text lock-error"></p>
+        <div class="lock-actions">
+            <button type="button" class="btn ghost" id="lockDocs"><i class="ti ti-files"></i>書類を見る</button>
+            <button type="button" class="btn ghost" id="lockClose"><i class="ti ti-map"></i>地図に戻る</button>
+        </div>
+    </div>
     <div class="finale-text">
         <h2>宝箱を開けた！</h2>
         <p class="finale-team" id="finaleTeam"></p>
@@ -957,8 +1042,8 @@
 <div id="toastArea" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data.js?v=202611202240"></script>
-<script src="api.js?v=202611202240"></script>
-<script src="app.js?v=202611202240"></script>
+<script src="data.js?v=202611202330"></script>
+<script src="api.js?v=202611202330"></script>
+<script src="app.js?v=202611202330"></script>
 </body>
 </html>

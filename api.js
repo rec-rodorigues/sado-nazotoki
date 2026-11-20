@@ -48,7 +48,7 @@
             const v = JSON.parse(localStorage.getItem(key(team)));
             if (v && v.solved && !Array.isArray(v.solved)) return v;
         } catch (e) { /* 読めなければ最初から */ }
-        return { solved: {}, spots: [] };
+        return { solved: {} };
     }
 
     function save(team, data) {
@@ -63,31 +63,25 @@
         const data = load(team);
         const solved = data.solved;            // { 書類番号: 正式な答え }
         const ids = Object.keys(solved);
-        const pages = { act1: D.pages.act1 };
-        for (const group of Object.keys(D.requires)) {
-            const req = D.requires[group];
-            // 第四幕は、宝箱のありかで合言葉を聞かれてはじめて届く
-            if (group === "act4" && !data.asked) continue;
-            if (req.every(function(p) { return solved[p]; })) {
-                pages[group] = await decrypt("page:" + req.map(function(p) { return solved[p]; }).join("|"), D.pages[group]);
-            }
-        }
         let points = [];
         for (const p of D.puzzles) {
             if (solved[p.id]) points = points.concat(JSON.parse(await decrypt("p:" + solved[p.id], p.points)));
         }
         points.sort(function(a, b) { return a[0] - b[0]; });
-        const treasure = data.spots.find(function(s) { return s.is_treasure; });
         return {
             team: TEAMS.find(function(t) { return t.id === team; }) || { id: team, name: "チーム" + team },
             solved: ids,
             puzzles: D.puzzles.map(function(p) { return { id: p.id, act: p.act, kind: p.kind }; }),
             points: points,
             total_points: D.total_points,
-            pages: pages,
-            cleared: treasure ? treasure.created_at : null,
-            spotUnlocked: !!solved["3-final"],
-            asked: !!data.asked
+            pages: D.pages,
+            // 第三幕をすべて解くと「宝箱を探す」が使える
+            searchUnlocked: D.unlock.every(function(p) { return solved[p]; }),
+            shovels: D.shovels,
+            used: data.used || 0,
+            dug: data.dug || [],             // 外れた場所 [[lat, lng], ...]
+            found: data.found || null,      // 宝箱を掘り当てた場所 [lat, lng]
+            cleared: data.cleared || null    // 宝箱を開けた時刻
         };
     }
 
@@ -113,8 +107,6 @@
             const st = await state(team);
             const p = D.puzzles.find(function(x) { return x.id === puzzleId; });
             if (!p) return { status: "unknown" };
-            const group = "act" + p.act;
-            if (!st.pages[group]) return { status: "locked" };
             if (st.solved.indexOf(puzzleId) >= 0) return { status: "already" };
             const typed = normalize(answer);
             const i = p.hashes.indexOf(await hashAnswer(typed));
@@ -125,38 +117,39 @@
             return { status: "correct", new_points: JSON.parse(await decrypt("p:" + data.solved[puzzleId], p.points)).length, state: await state(team) };
         },
 
-        async spots(team) {
-            return load(team).spots;
-        },
-
-        // 宝箱があるエリアか（第二幕の最終謎を解いていないと、場所を解読できない）
-        async inTreasureArea(team, lat, lng) {
+        // この付近を探す。外れるとスコップの耐久力が1減る
+        async search(team, lat, lng) {
+            const st = await state(team);
+            if (!st.searchUnlocked) return { status: "locked" };
+            if (st.found) return { status: "found", found: st.found };
+            if (st.used >= st.shovels) return { status: "broken" };
             const data = load(team);
-            if (!data.solved["2-final"]) return false;
-            const tip = JSON.parse(await decrypt("tip:" + data.solved["2-final"], D.tip));
-            return distance(lat, lng, tip[0], tip[1]) <= D.radius_m;
-        },
-
-        async addSpot(team, code, spot) {
-            const treasure = await this.inTreasureArea(team, spot.lat, spot.lng);
-            // 宝箱のエリアでは、合言葉が正しいときだけ登録できる（カテゴリーは問わない）
-            if (treasure && D.password.indexOf(await hashAnswer(normalize(spot.password))) < 0) {
-                return { status: "bad_password" };
+            const tip = JSON.parse(await decrypt("tip:" + data.solved["3-final"], D.tip));
+            if (distance(lat, lng, tip[0], tip[1]) <= D.radius_m) {
+                data.found = [lat, lng];
+                save(team, data);
+                return { status: "found", found: data.found };
             }
-            const data = load(team);
-            data.spots.push({
-                id: Date.now(), team_id: team, name: spot.name || "名前のない地点", category: spot.category,
-                note: spot.note, lat: spot.lat, lng: spot.lng, is_treasure: treasure, created_at: new Date().toISOString()
-            });
+            data.used = (data.used || 0) + 1;
+            data.dug = (data.dug || []).concat([[lat, lng]]);
             save(team, data);
-            return { status: treasure ? "treasure" : "added" };
+            return { status: data.used >= D.shovels ? "broken" : "nothing", left: D.shovels - data.used };
         },
 
-        // 宝箱のありかで合言葉を聞かれた（第四幕の書類が届く）
-        markAsked(team) {
+        // 合言葉で宝箱を開ける
+        async open(team, password) {
             const data = load(team);
-            if (data.asked) return false;
-            data.asked = true;
+            if (!data.found) return { status: "locked" };
+            if (D.password.indexOf(await hashAnswer(normalize(password))) < 0) return { status: "bad_password" };
+            if (!data.cleared) { data.cleared = new Date().toISOString(); save(team, data); }
+            return { status: "opened", cleared: data.cleared };
+        },
+
+        // 運営用：スコップの回数を戻す
+        async refill(team, staffPassword) {
+            if (D.staff.indexOf(await hashAnswer(normalize(staffPassword))) < 0) return false;
+            const data = load(team);
+            data.used = 0;
             save(team, data);
             return true;
         },
